@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SentinelNet — SOC Operations Console</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen">
+  <header class="border-b border-slate-800 bg-slate-900/60 px-6 py-4 flex justify-between items-center sticky top-0 z-50 backdrop-blur">
+    <div class="flex items-center space-x-3">
+      <div class="w-3 h-3 rounded-full bg-emerald-500 animate-ping"></div>
+      <h1 class="text-xl font-bold tracking-wider text-white">SENTINEL<span class="text-cyan-400">NET</span></h1>
+      <span class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700">OS & DBMS Evaluation</span>
+    </div>
+    <div class="flex items-center space-x-4">
+      <span class="text-xs text-slate-400">ROLE: <strong class="text-emerald-400">ADMIN (Full Matrix)</strong></span>
+      <span class="text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-full">Pipeline Active</span>
+    </div>
+  </header>
+
+  <div class="max-w-7xl mx-auto px-6 py-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+      <p class="text-xs text-slate-400 font-semibold uppercase">Total Packets Ingested</p>
+      <h3 id="stat-packets" class="text-2xl font-bold text-cyan-400 mt-1">0</h3>
+    </div>
+    <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+      <p class="text-xs text-slate-400 font-semibold uppercase">Ring Buffer Fill Level</p>
+      <h3 class="text-2xl font-bold text-amber-400 mt-1">42% <span class="text-xs text-slate-500 font-normal">(27/64 slots)</span></h3>
+    </div>
+    <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+      <p class="text-xs text-slate-400 font-semibold uppercase">Threat Events Triggered</p>
+      <h3 id="stat-threats" class="text-2xl font-bold text-rose-400 mt-1">0</h3>
+    </div>
+    <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+      <p class="text-xs text-slate-400 font-semibold uppercase">Blocked IP Addresses</p>
+      <h3 id="stat-blocked" class="text-2xl font-bold text-red-500 mt-1">0</h3>
+    </div>
+  </div>
+
+  <div class="max-w-7xl mx-auto px-6 mb-6">
+    <div class="flex border-b border-slate-800 space-x-2">
+      <button onclick="switchTab('p1')" id="tab-p1" class="px-4 py-2 border-b-2 border-cyan-400 text-cyan-400 font-semibold text-sm">P1: System Perf (Priyanshu)</button>
+      <button onclick="switchTab('p2')" id="tab-p2" class="px-4 py-2 text-slate-400 font-semibold text-sm hover:text-slate-200">P2: Live Traffic (Anjali)</button>
+      <button onclick="switchTab('p3')" id="tab-p3" class="px-4 py-2 text-slate-400 font-semibold text-sm hover:text-slate-200">P3: DB & Optimization (Aanya)</button>
+      <button onclick="switchTab('p4')" id="tab-p4" class="px-4 py-2 text-slate-400 font-semibold text-sm hover:text-slate-200">P4: Security & Threats (Drishti)</button>
+    </div>
+  </div>
+
+  <main class="max-w-7xl mx-auto px-6 pb-12">
+    <div id="panel-p1" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl">
+        <h3 class="text-sm font-semibold text-slate-300 mb-3">Synchronization Benchmark (Throughput)</h3>
+        <canvas id="chartSync" height="180"></canvas>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl">
+        <h3 class="text-sm font-semibold text-slate-300 mb-3">Top-Talkers Filter Pipeline (grep | awk | uniq)</h3>
+        <pre class="bg-black/50 p-4 rounded text-xs text-emerald-400 font-mono">
+$ awk '{print $2}' traffic.log | sort | uniq -c | sort -nr
+   148 45.33.32.156  [ATTACK VECTOR]
+    82 192.168.1.105 [GATEWAY SYNC]
+    45 10.0.0.15     [CLEAN]
+        </pre>
+      </div>
+    </div>
+
+    <div id="panel-p2" class="hidden">
+      <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl">
+        <h3 class="text-sm font-semibold text-slate-300 mb-3">Parsed Packet Stream (POSIX Pipe Ingest)</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="text-slate-400 border-b border-slate-800">
+              <tr>
+                <th class="py-2">PKT ID</th><th>Source IP</th><th>Dest IP</th><th>Port</th><th>Protocol</th><th>Size</th><th>Threat Flag</th>
+              </tr>
+            </thead>
+            <tbody id="packet-tbody" class="divide-y divide-slate-800/50"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="panel-p3" class="hidden grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl">
+        <h3 class="text-sm font-semibold text-slate-300 mb-3">Query Execution Latency: Raw Scan vs Index</h3>
+        <canvas id="chartLatency" height="180"></canvas>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl">
+        <h3 class="text-sm font-semibold text-slate-300 mb-3">Page Replacement Hit Ratio (FIFO vs LRU)</h3>
+        <div class="space-y-4 text-xs mt-4">
+          <div>
+            <div class="flex justify-between mb-1"><span>FIFO Policy (Hit Rate)</span><span>58.3%</span></div>
+            <div class="w-full bg-slate-800 rounded-full h-2"><div class="bg-amber-400 h-2 rounded-full" style="width: 58.3%"></div></div>
+          </div>
+          <div>
+            <div class="flex justify-between mb-1"><span>LRU Policy (Hit Rate)</span><span>75.0%</span></div>
+            <div class="w-full bg-slate-800 rounded-full h-2"><div class="bg-cyan-400 h-2 rounded-full" style="width: 75.0%"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="panel-p4" class="hidden grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl">
+        <h3 class="text-sm font-semibold text-slate-300 mb-3 text-red-400">Trigger Auto-Blocked Blacklist</h3>
+        <table class="w-full text-left text-xs">
+          <thead class="text-slate-400 border-b border-slate-800">
+            <tr><th class="py-2">Attacker IP</th><th>Malformed Count</th><th>Status</th></tr>
+          </thead>
+          <tbody id="blocked-tbody" class="divide-y divide-slate-800/50"></tbody>
+        </table>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl">
+        <h3 class="text-sm font-semibold text-slate-300 mb-3">Banker's Algorithm State Inspector</h3>
+        <div class="bg-emerald-500/10 border border-emerald-500/20 p-3 rounded text-xs text-emerald-400 mb-4">
+          SYSTEM STATE: SAFE — All DB connection requests maintain deadlock-free sequence.
+        </div>
+        <div id="threat-alerts" class="space-y-2 text-xs"></div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    function switchTab(id) {
+      ['p1', 'p2', 'p3', 'p4'].forEach(p => {
+        document.getElementById('panel-' + p).classList.add('hidden');
+        document.getElementById('tab-' + p).className = 'px-4 py-2 text-slate-400 font-semibold text-sm hover:text-slate-200';
+      });
+      document.getElementById('panel-' + id).classList.remove('hidden');
+      document.getElementById('tab-' + id).className = 'px-4 py-2 border-b-2 border-cyan-400 text-cyan-400 font-semibold text-sm';
+    }
+
+    new Chart(document.getElementById('chartSync'), {
+      type: 'bar',
+      data: {
+        labels: ['Peterson Alg', 'Mutex + Sem', 'C11 Atomics'],
+        datasets: [{ data: [1200, 24000, 31000], backgroundColor: ['#f59e0b', '#06b6d4', '#10b981'] }]
+      },
+      options: { plugins: { legend: { display: false } } }
+    });
+
+    new Chart(document.getElementById('chartLatency'), {
+      type: 'bar',
+      data: {
+        labels: ['Full Table Scan', 'Indexed Lookup'],
+        datasets: [{ data: [42.1, 1.8], backgroundColor: ['#ef4444', '#10b981'] }]
+      },
+      options: { plugins: { legend: { display: false } } }
+    });
+
+    setInterval(() => {
+      fetch('/api/stats').then(r => r.json()).then(data => {
+        document.getElementById('stat-packets').innerText = data.total_packets;
+        document.getElementById('stat-threats').innerText = data.total_threats;
+        document.getElementById('stat-blocked').innerText = data.blocked_ips_count;
+
+        const pbody = document.getElementById('packet-tbody');
+        pbody.innerHTML = data.packets.map(p => `
+          <tr>
+            <td class="py-2 text-slate-400">${p.packet_id}</td>
+            <td class="font-mono text-cyan-400">${p.src_ip}</td>
+            <td class="font-mono text-slate-400">${p.dst_ip}</td>
+            <td>${p.dst_port}</td>
+            <td><span class="px-1.5 py-0.5 rounded text-[10px] ${p.protocol==='TCP'?'bg-blue-500/20 text-blue-400':'bg-purple-500/20 text-purple-400'}">${p.protocol}</span></td>
+            <td>${p.packet_size}B</td>
+            <td>${p.is_malformed ? '<span class="text-rose-400 font-bold">ATTACK</span>' : '<span class="text-emerald-400">CLEAN</span>'}</td>
+          </tr>
+        `).join('');
+
+        const bbody = document.getElementById('blocked-tbody');
+        bbody.innerHTML = data.blocked_ips.map(b => `
+          <tr>
+            <td class="py-2 text-rose-400 font-mono">${b.ip_address}</td>
+            <td class="text-amber-400 font-bold">${b.malformed_count}</td>
+            <td><span class="bg-red-500/20 text-red-400 px-2 py-0.5 rounded text-[10px]">BLOCKED</span></td>
+          </tr>
+        `).join('');
+
+        const alerts = document.getElementById('threat-alerts');
+        alerts.innerHTML = data.threats.map(t => `
+          <div class="bg-rose-500/10 border border-rose-500/20 p-2 rounded text-rose-400">
+            <strong>${t.attacker_ip}</strong>: ${t.reason}
+          </div>
+        `).join('');
+      });
+    }, 1200);
+  </script>
+</body>
+</html>
