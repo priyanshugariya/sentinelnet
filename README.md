@@ -1,31 +1,23 @@
-# SentinelNet: Real-Time Network Threat Telemetry & Resource Engine
+<div align="center">
 
-SentinelNet is a high-performance network threat analysis and telemetry framework built on top of OS-level resource management primitives and a relational storage backend. The system integrates low-level C components for memory allocation, CPU scheduling, and deadlock avoidance with a Python/SQLite pipeline and web dashboard.
+# 🛡️ SENTINELNET
+**Real-Time Network Threat Telemetry & OS/DBMS Resource Engine**
+
+![Phase](https://img.shields.io/badge/Release-Phase%203%20Final-00E5FF?style=flat-square)
+![C](https://img.shields.io/badge/Kernel%20%26%20Memory-C%20%2F%20POSIX-00599C?style=flat-square&logo=c&logoColor=white)
+![Python](https://img.shields.io/badge/Backend%20%26%20Engines-Python%203-3776AB?style=flat-square&logo=python&logoColor=white)
+![SQLite](https://img.shields.io/badge/Storage-SQLite3%20%2F%204NF--5NF-003B57?style=flat-square&logo=sqlite&logoColor=white)
+![Three.js](https://img.shields.io/badge/UI-Three.js%20WebGL-000000?style=flat-square&logo=threedotjs&logoColor=white)
+
+*Bridging low-level Operating System kernel primitives with ACID-compliant DBMS storage inside a 3D Security Operations Center.*
+
+</div>
 
 ---
 
-## Key Features
-
-- **Custom Memory Management:** Dynamic free-list memory allocator with internal/external fragmentation tracking and POSIX multithreaded ring-buffer ingestion.
-- **CPU & Disk Scheduling:** Simulation engines supporting FCFS, SJF, Round Robin, LOOK, and SCAN algorithms for packet ingestion prioritization.
-- **Deadlock Management:** Resource Allocation Graph (RAG) cycle detection and Dijkstra's Banker's Algorithm verification.
-- **BCNF Relational Engine:** SQLite schema normalized to Boyce-Codd Normal Form with database triggers for automatic threat quarantine and audit logging.
-- **Live Telemetry Dashboard:** Flask and JavaScript monitoring interface to track packet flow, memory usage, and threat metrics.
-
----
-
-## Repository Structure
+## ⚡ System Architecture
 
 ```text
-sentinelnet/
-├── dashboard/                  # Telemetry dashboard server and UI
-├── include/                    # Header files (packet structures, interfaces)
-├── scripts/                    # Network traffic generators and feeder scripts
-├── src/
-│   ├── bridge/                 # IPC to SQLite streaming bridge
-│   ├── member1/                # Memory allocation & concurrency stress tests
-│   ├── member2/                # CPU scheduler simulations & worker parser
-│   ├── member3/                # BCNF schema, page replacement, and mmap tracking
-│   └── member4/                # Banker's algorithm, RAG analyzer, and triggers
-├── Makefile                    # Automated build script
-└── run_demo.sh                 # End-to-end execution script
+  [ Incoming Traffic ] ──► [ Syscall Audit & Ring Buffer ] ──► [ MLFQ Scheduler & Memory ]
+                                                                          │
+  [ 3D WebGL SOC HUD ] ◄── [ Flask Telemetry REST API ]    ◄── [ 4NF/5NF DB, MVCC & WAL ]
