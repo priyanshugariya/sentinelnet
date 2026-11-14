@@ -1,6 +1,15 @@
-data/*.db-wal
-data/*.db-shm
 __pycache__/
-*.o
+*.py[cod]
+*$py.class
+venv/
+.venv/
 *.out
-*.pyc
+*.o
+*.bak
+.DS_Store
+
+# Ignore backups, zips, and compiled Linux binaries
+*.bak
+.backup_snapshot/
+SentinelNet_Project.zip
+bin_*

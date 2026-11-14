@@ -1,0 +1,20 @@
+{
+  "ip:192.168.1.45": {
+    "type": "DocumentStore",
+    "asn": "AS64512",
+    "tags": [
+      "syn-flood",
+      "tor-exit"
+    ],
+    "nested_geo": {
+      "country": "IN",
+      "city": "Dehradun"
+    },
+    "cap_profile": "AP (Available + Partition Tolerant, Eventual Consistency)"
+  },
+  "ip:172.16.4.99": {
+    "type": "KeyValueStore",
+    "reputation": 12,
+    "ttl_seconds": 3600
+  }
+}

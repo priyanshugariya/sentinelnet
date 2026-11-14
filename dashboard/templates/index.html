@@ -1,189 +1,2706 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>SentinelNet — SOC Operations Console</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SentinelNet — 3D Interactive OS &amp; DBMS Visual Studio</title>
+  <style>
+    :root {
+      --bg: #eef4fa;
+      --surface: rgba(255, 255, 255, 0.92);
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: rgba(203, 213, 225, 0.8);
+      --m1: #0284c7; --m1-grad: linear-gradient(135deg, #0284c7, #38bdf8); --m1-soft: #e0f2fe;
+      --m2: #059669; --m2-grad: linear-gradient(135deg, #059669, #34d399); --m2-soft: #d1fae5;
+      --m3: #7c3aed; --m3-grad: linear-gradient(135deg, #7c3aed, #c084fc); --m3-soft: #ede9fe;
+      --m4: #ea580c; --m4-grad: linear-gradient(135deg, #ea580c, #fb923c); --m4-soft: #ffedd5;
+      --green: #16a34a; --green-soft: #dcfce7;
+      --red: #dc2626; --red-soft: #fee2e2;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #e0f2fe 0%, #f1f5f9 45%, #ede9fe 100%);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Live 3D Perspective Background Canvas */
+    .bg-3d-scene {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+      perspective: 900px;
+    }
+    .bg-grid-floor {
+      position: absolute;
+      width: 200%;
+      height: 200%;
+      left: -50%;
+      top: -20%;
+      background-image:
+        linear-gradient(to right, rgba(2, 132, 199, 0.08) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(124, 58, 237, 0.08) 1px, transparent 1px);
+      background-size: 54px 54px;
+      transform: rotateX(58deg) translateZ(-120px);
+      animation: gridDrift 22s linear infinite;
+    }
+    @keyframes gridDrift {
+      0% { transform: rotateX(58deg) translateZ(-120px) translateY(0px); }
+      100% { transform: rotateX(58deg) translateZ(-120px) translateY(54px); }
+    }
+    .orb-3d {
+      position: absolute;
+      border-radius: 28px;
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(167, 139, 250, 0.16));
+      backdrop-filter: blur(4px);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.06);
+      animation: floatShape 11s ease-in-out infinite;
+    }
+    .orb-1 { width: 220px; height: 220px; top: 8%; right: 6%; transform: rotate(24deg); }
+    .orb-2 { width: 170px; height: 170px; bottom: 10%; left: 4%; border-radius: 50%; animation-delay: -4s; }
+    .orb-3 { width: 130px; height: 130px; top: 48%; right: 14%; transform: rotate(-18deg); animation-delay: -7s; }
+    @keyframes floatShape {
+      0%, 100% { transform: translateY(0px) rotate(18deg) scale(1); }
+      50% { transform: translateY(-22px) rotate(32deg) scale(1.05); }
+    }
+
+    /* Header & Nav */
+    header, .nav-bar, main { position: relative; z-index: 2; }
+    header {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 1.1rem 2rem;
+    }
+    .header-inner {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .brand h1 { font-size: 1.55rem; font-weight: 900; letter-spacing: -0.4px; }
+    .brand h1 span { color: var(--m1); }
+
+    .nav-bar {
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 30;
+    }
+    .nav-inner {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      gap: 0.65rem;
+      flex-wrap: wrap;
+    }
+    .tab-btn {
+      background: rgba(248, 250, 252, 0.9);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 0.6rem 1.3rem;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 0.88rem;
+      transition: all 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .tab-btn:hover { color: var(--text); transform: translateY(-2px); }
+    .tab-btn.active {
+      background: #0f172a;
+      color: #fff;
+      border-color: #0f172a;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.22);
+    }
+
+    main { max-width: 1400px; margin: 0 auto; padding: 2rem 2rem 4rem; perspective: 1300px; }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.75rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .top-bar h2 { font-size: 1.75rem; font-weight: 900; letter-spacing: -0.3px; }
+
+    /* Larger, Spacious Visual Cards */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(410px, 1fr));
+      gap: 1.85rem;
+    }
+    .outer-card {
+      background: var(--surface);
+      backdrop-filter: blur(12px);
+      border-radius: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      box-shadow: 0 18px 36px -10px rgba(15, 23, 42, 0.1), 0 6px 14px -4px rgba(15, 23, 42, 0.05);
+      overflow: hidden;
+      cursor: pointer;
+      transform-style: preserve-3d;
+      transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.32s ease;
+      display: flex;
+      flex-direction: column;
+      min-height: 295px;
+    }
+    .outer-card:hover {
+      transform: translateY(-10px) rotateX(2.5deg) rotateY(-2deg) scale(1.015);
+      box-shadow: 0 30px 55px -12px rgba(15, 23, 42, 0.18);
+    }
+    .card-ribbon { height: 9px; width: 100%; }
+    .outer-body {
+      padding: 1.65rem 1.75rem 1.75rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 1rem;
+      flex: 1;
+    }
+    .outer-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; }
+    .outer-title { font-size: 1.22rem; font-weight: 900; color: #0f172a; line-height: 1.3; }
+    .outer-desc { font-size: 0.9rem; color: #475569; line-height: 1.5; }
+
+    /* Embedded Visual Diagram Container on Outer Card */
+    .card-diagram {
+      margin-top: 0.35rem;
+      background: linear-gradient(145deg, #f8fafc, #f1f5f9);
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 0.85rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 118px;
+      box-shadow: inset 0 2px 6px rgba(15, 23, 42, 0.03);
+    }
+    .card-diagram svg { width: 100%; height: 98px; overflow: visible; }
+
+    .pill {
+      padding: 0.3rem 0.8rem;
+      border-radius: 999px;
+      font-size: 0.74rem;
+      font-weight: 800;
+      letter-spacing: 0.4px;
+      white-space: nowrap;
+    }
+
+    /* Full-Screen Interactive 3D Modal Studio */
+    .studio-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      backdrop-filter: blur(10px);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      animation: fadeIn 0.22s ease;
+    }
+    .studio-overlay.open { display: flex; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .studio-window {
+      background: rgba(255, 255, 255, 0.97);
+      width: 100%;
+      max-width: 1150px;
+      max-height: 92vh;
+      border-radius: 28px;
+      box-shadow: 0 35px 80px rgba(15, 23, 42, 0.3);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      animation: pop3D 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    @keyframes pop3D {
+      from { opacity: 0; transform: scale(0.93) translateY(20px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .studio-header {
+      padding: 1.4rem 1.9rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      position: sticky;
+      top: 0;
+      background: #fff;
+      z-index: 10;
+    }
+    .studio-body {
+      padding: 1.9rem;
+      display: grid;
+      grid-template-columns: 1.25fr 1fr;
+      gap: 1.85rem;
+      align-items: stretch;
+    }
+    @media (max-width: 880px) { .studio-body { grid-template-columns: 1fr; } }
+
+    .btn-action {
+      border: none;
+      color: #fff;
+      padding: 0.65rem 1.25rem;
+      border-radius: 12px;
+      font-weight: 800;
+      font-size: 0.86rem;
+      cursor: pointer;
+      box-shadow: 0 6px 16px rgba(15, 23, 42, 0.16);
+      transition: transform 0.15s ease;
+    }
+    .btn-action:hover { transform: translateY(-2px); }
+
+    /* 3D Visual Stage Components inside Studio */
+    .stage-3d {
+      background: linear-gradient(145deg, #f8fafc, #eef2f6);
+      border: 1px solid #e2e8f0;
+      border-radius: 22px;
+      padding: 1.6rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 1.25rem;
+      perspective: 900px;
+      box-shadow: inset 0 2px 8px rgba(15, 23, 42, 0.04);
+    }
+    .stage-title { font-size: 0.78rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.7px; color: var(--muted); }
+
+    .pillars-arena {
+      height: 225px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-around;
+      gap: 1rem;
+      padding: 1rem 0.5rem 0.25rem;
+      border-bottom: 3px solid #cbd5e1;
+    }
+    .pillar-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100%;
+      justify-content: flex-end;
+      gap: 0.45rem;
+    }
+    .pillar-val { font-size: 0.86rem; font-weight: 900; color: #0f172a; }
+    .pillar-3d {
+      width: 62px;
+      border-radius: 11px 11px 4px 4px;
+      transform: rotateY(-14deg) rotateX(6deg);
+      box-shadow: 8px 8px 18px rgba(15, 23, 42, 0.18), inset -6px 0 12px rgba(0, 0, 0, 0.14), inset 4px 4px 10px rgba(255, 255, 255, 0.45);
+      transition: height 0.75s cubic-bezier(0.34, 1.56, 0.64, 1);
+      animation: float3D 3.2s ease-in-out infinite;
+    }
+    @keyframes float3D {
+      0%, 100% { transform: rotateY(-14deg) rotateX(6deg) translateY(0px); }
+      50% { transform: rotateY(-10deg) rotateX(4deg) translateY(-6px); }
+    }
+    .pillar-lbl { font-size: 0.78rem; font-weight: 800; color: #334155; text-align: center; }
+
+    .ring-wrap { display: flex; align-items: center; justify-content: center; padding: 1rem; }
+    .ring-3d {
+      width: 170px;
+      height: 170px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 16px 32px rgba(15, 23, 42, 0.15), inset 0 4px 10px rgba(255, 255, 255, 0.6);
+      transform: rotateX(12deg);
+      animation: pulseRing 3s ease-in-out infinite;
+    }
+    @keyframes pulseRing {
+      0%, 100% { transform: rotateX(12deg) scale(1); }
+      50% { transform: rotateX(6deg) scale(1.04); }
+    }
+    .ring-hole {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-shadow: inset 0 4px 10px rgba(15, 23, 42, 0.1);
+    }
+
+    .hex-flow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+      padding: 1.2rem 0;
+    }
+    .hex-node {
+      background: #fff;
+      border: 2px solid #cbd5e1;
+      border-bottom: 6px solid #94a3b8;
+      border-radius: 16px;
+      padding: 0.85rem 1.1rem;
+      font-weight: 900;
+      font-size: 0.9rem;
+      text-align: center;
+      box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+      animation: bobNode 2.6s ease-in-out infinite;
+    }
+    .hex-node:nth-child(3) { animation-delay: 0.4s; }
+    .hex-node:nth-child(5) { animation-delay: 0.8s; }
+    @keyframes bobNode {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+
+    .drive-bay { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.8rem; }
+    .drive-3d {
+      background: linear-gradient(180deg, #ffffff 0%, #e2e8f0 100%);
+      border: 1px solid #cbd5e1;
+      border-bottom: 7px solid #64748b;
+      border-radius: 14px;
+      padding: 1rem 0.5rem;
+      text-align: center;
+      font-weight: 900;
+      font-size: 0.82rem;
+      box-shadow: 0 10px 18px rgba(15, 23, 42, 0.1);
+      transform: rotateX(10deg);
+    }
+    .drive-3d.rebuilt {
+      background: linear-gradient(180deg, #dcfce7 0%, #86efac 100%);
+      border-color: #22c55e;
+      border-bottom-color: #15803d;
+      color: #14532d;
+    }
+
+    .sector-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 0.45rem; }
+    .sector-cube {
+      aspect-ratio: 1;
+      border-radius: 7px;
+      border-bottom: 4px solid rgba(0,0,0,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.68rem;
+      font-weight: 800;
+      color: #fff;
+      box-shadow: 0 4px 8px rgba(15, 23, 42, 0.1);
+    }
+
+    .info-panel { display: flex; flex-direction: column; justify-content: space-between; gap: 1.1rem; }
+    .explain-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.15rem; }
+    .explain-box h4 { font-size: 0.9rem; font-weight: 800; margin-bottom: 0.35rem; color: #0f172a; }
+    .explain-box p { font-size: 0.86rem; color: #475569; line-height: 1.55; }
+
+    .metrics-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+    .m-tile {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-bottom: 3px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 0.75rem 0.9rem;
+    }
+    .m-tile .k { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: var(--muted); }
+    .m-tile .v { font-size: 0.95rem; font-weight: 900; color: #0f172a; margin-top: 0.15rem; word-break: break-word; }
+
+    /* Pipeline View */
+    .panel-card {
+      background: var(--surface);
+      backdrop-filter: blur(12px);
+      border-radius: 22px;
+      padding: 1.5rem;
+      box-shadow: 0 14px 32px -6px rgba(15, 23, 42, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.9);
+    }
+    .pipe-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    @media (max-width: 920px) { .pipe-grid { grid-template-columns: 1fr; } }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 0.8rem; }
+    th { text-align: left; font-size: 0.72rem; color: var(--muted); padding: 0.65rem; border-bottom: 2px solid #e2e8f0; }
+    td { padding: 0.7rem 0.65rem; border-bottom: 1px solid #f1f5f9; }
+
+    /* Live 3D Packet Routing Movie Stage */
+    .movie-stage {
+      background: linear-gradient(145deg, #0f172a 0%, #1e293b 100%);
+      border-radius: 24px;
+      padding: 1.35rem 1.6rem;
+      margin-bottom: 1.65rem;
+      box-shadow: 0 22px 45px -10px rgba(15, 23, 42, 0.28);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      position: relative;
+      overflow: hidden;
+      perspective: 1000px;
+    }
+    .movie-hud {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.65rem;
+      color: #e2e8f0;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.6px;
+    }
+    .movie-track-wrap {
+      position: relative;
+      height: 195px;
+      width: 100%;
+      transform: rotateX(14deg);
+      transform-style: preserve-3d;
+    }
+    .stage-node {
+      position: absolute;
+      border-radius: 16px;
+      padding: 0.75rem 1rem;
+      text-align: center;
+      font-weight: 900;
+      box-shadow: 0 14px 28px rgba(0, 0, 0, 0.35), inset 0 2px 6px rgba(255, 255, 255, 0.2);
+      z-index: 4;
+    }
+    .node-capture {
+      left: 1.5%; top: 58px; width: 175px;
+      background: linear-gradient(135deg, #0284c7, #0369a1);
+      border: 2px solid #38bdf8; color: #fff;
+    }
+    .node-scanner {
+      left: 37%; top: 44px; width: 205px;
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      border: 2px solid #c084fc; color: #fff;
+      animation: scannerPulse 2.4s ease-in-out infinite;
+    }
+    @keyframes scannerPulse {
+      0%, 100% { box-shadow: 0 0 20px rgba(167, 139, 250, 0.35), 0 14px 28px rgba(0,0,0,0.4); }
+      50% { box-shadow: 0 0 36px rgba(56, 189, 248, 0.65), 0 14px 28px rgba(0,0,0,0.4); }
+    }
+    .node-clean {
+      right: 1.5%; top: 10px; width: 185px;
+      background: linear-gradient(135deg, #15803d, #16a34a);
+      border: 2px solid #4ade80; color: #fff;
+    }
+    .node-trap {
+      right: 1.5%; bottom: 8px; width: 185px;
+      background: linear-gradient(135deg, #991b1b, #dc2626);
+      border: 2px dashed #fca5a5; color: #fff;
+      box-shadow: 0 0 24px rgba(239, 68, 68, 0.35), inset 0 0 14px rgba(0, 0, 0, 0.45);
+    }
+
+    /* Animated 3D Packet Cubes */
+    .pkt-cube {
+      position: absolute;
+      width: 34px;
+      height: 24px;
+      border-radius: 7px;
+      font-size: 0.62rem;
+      font-weight: 900;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      z-index: 6;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.45), inset 0 2px 4px rgba(255, 255, 255, 0.6);
+      pointer-events: none;
+    }
+    .pkt-safe {
+      background: linear-gradient(135deg, #22c55e, #38bdf8);
+      border: 1px solid #bbf7d0;
+      animation: flySafe 4.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    }
+    .pkt-threat {
+      background: linear-gradient(135deg, #ef4444, #f97316);
+      border: 1px solid #fecaca;
+      animation: flyTrap 4.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    }
+    @keyframes flySafe {
+      0%   { left: 14%; top: 82px; opacity: 0; transform: scale(0.7) rotateY(-20deg); }
+      12%  { opacity: 1; transform: scale(1) rotateY(0deg); }
+      45%  { left: 45%; top: 82px; transform: scale(1.12); }
+      60%  { left: 54%; top: 55px; }
+      90%  { left: 82%; top: 32px; opacity: 1; transform: scale(0.95); }
+      100% { left: 86%; top: 32px; opacity: 0; transform: scale(0.6); }
+    }
+    @keyframes flyTrap {
+      0%   { left: 14%; top: 82px; opacity: 0; transform: scale(0.7) rotateZ(0deg); }
+      12%  { opacity: 1; transform: scale(1); }
+      45%  { left: 45%; top: 82px; transform: scale(1.22); }
+      60%  { left: 54%; top: 118px; transform: rotateZ(12deg); }
+      85%  { left: 82%; top: 142px; opacity: 1; transform: scale(1) rotateZ(0deg); }
+      94%  { left: 83%; top: 142px; transform: scale(1.15); }
+      100% { left: 84%; top: 142px; opacity: 0; transform: scale(0.5); }
+    }
+
+
+    /* System Health & Telemetry Ticker */
+    .soc-ticker {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 0.48rem 2rem;
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 0.4px;
+      border-bottom: 1px solid rgba(56, 189, 248, 0.25);
+      position: relative;
+      z-index: 25;
+    }
+    .soc-ticker-inner {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.8rem;
+    }
+    .ticker-item { display: inline-flex; align-items: center; gap: 0.4rem; }
+    .dot-live {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 8px #22c55e;
+      animation: blinkDot 1.6s infinite;
+    }
+    @keyframes blinkDot { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+    /* Clickable Table Rows */
+    tbody tr { cursor: pointer; transition: background 0.15s ease; }
+    tbody tr:hover { background: #f1f5f9; }
+
+    /* Slide-Over Packet Inspector Drawer */
+    .drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.42);
+      backdrop-filter: blur(4px);
+      z-index: 120;
+      display: none;
+      justify-content: flex-end;
+    }
+    .drawer-backdrop.open { display: flex; }
+    .inspector-drawer {
+      width: 100%;
+      max-width: 470px;
+      background: #ffffff;
+      height: 100%;
+      box-shadow: -16px 0 45px rgba(15, 23, 42, 0.25);
+      padding: 1.75rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+      animation: slideLeft 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    @keyframes slideLeft {
+      from { transform: translateX(100%); }
+      to { transform: translateX(0); }
+    }
+    .hex-box {
+      background: #0f172a;
+      color: #38bdf8;
+      font-family: "Fira Code", monospace;
+      font-size: 0.76rem;
+      line-height: 1.55;
+      padding: 1rem;
+      border-radius: 14px;
+      overflow-x: auto;
+      border: 1px solid #334155;
+    }
+
+
+    /* Cyber SOC Dark Mode Overrides */
+    body.dark-soc {
+      background: linear-gradient(135deg, #060b19 0%, #0f172a 50%, #170f2e 100%);
+      color: #f1f5f9;
+    }
+    body.dark-soc header, body.dark-soc .nav-bar {
+      background: rgba(15, 23, 42, 0.88);
+      border-color: rgba(56, 189, 248, 0.2);
+    }
+    body.dark-soc .brand h1, body.dark-soc .top-bar h2, body.dark-soc h3 { color: #f8fafc; }
+    body.dark-soc .tab-btn {
+      background: rgba(30, 41, 59, 0.85);
+      color: #94a3b8;
+      border-color: rgba(148, 163, 184, 0.25);
+    }
+    body.dark-soc .tab-btn:hover { color: #fff; }
+    body.dark-soc .tab-btn.active {
+      background: #0284c7;
+      color: #fff;
+      border-color: #38bdf8;
+    }
+    body.dark-soc .outer-card, body.dark-soc .panel-card, body.dark-soc .studio-window, body.dark-soc .inspector-drawer {
+      background: rgba(15, 23, 42, 0.92);
+      border-color: rgba(56, 189, 248, 0.22);
+      color: #f1f5f9;
+    }
+    body.dark-soc .studio-header { background: #0f172a; border-color: rgba(56, 189, 248, 0.2); }
+    body.dark-soc .outer-title, body.dark-soc .pillar-val, body.dark-soc .m-tile .v, body.dark-soc .explain-box h4 { color: #f8fafc; }
+    body.dark-soc .outer-desc, body.dark-soc .pillar-lbl, body.dark-soc .explain-box p, body.dark-soc td { color: #cbd5e1; }
+    body.dark-soc .card-diagram, body.dark-soc .stage-3d, body.dark-soc .explain-box, body.dark-soc .m-tile {
+      background: #1e293b;
+      border-color: #334155;
+    }
+    body.dark-soc .hex-node { background: #0f172a; color: #f8fafc; border-color: #334155; }
+    body.dark-soc tbody tr:hover { background: rgba(56, 189, 248, 0.08); }
+    body.dark-soc td, body.dark-soc th { border-color: #1e293b; }
+
+    /* Team Flow Strip */
+    .team-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.85rem;
+      margin-bottom: 1.5rem;
+    }
+    @media (max-width: 860px) { .team-strip { grid-template-columns: repeat(2, 1fr); } }
+    .team-chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 0.75rem 1rem;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+    body.dark-soc .team-chip { background: rgba(15, 23, 42, 0.9); border-color: rgba(56, 189, 248, 0.22); }
+    .team-chip:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12); }
+
+
+    /* Phase 2 Interactive 3D Simulator Controls */
+    .p2-toolbar { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.9rem; align-items: center; }
+    .p2-chip {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      padding: 0.38rem 0.85rem;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.16s ease;
+    }
+    body.dark-soc .p2-chip { background: #0f172a; color: #cbd5e1; border-color: #334155; }
+    .p2-chip.active { background: #0284c7; color: #fff; border-color: #0284c7; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35); }
+    .p2-heap-bar {
+      display: flex; gap: 4px; padding: 10px; background: #0f172a;
+      border-radius: 14px; min-height: 58px; align-items: stretch;
+    }
+    .p2-block {
+      border-radius: 7px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      font-size: 0.74rem; font-weight: 900; color: #fff;
+      box-shadow: 0 4px 0 rgba(0,0,0,0.35);
+      transition: all 0.25s ease;
+    }
+    .p2-gantt-bar {
+      display: flex; gap: 4px; padding: 10px; background: #0f172a;
+      border-radius: 14px; min-height: 58px; overflow-x: auto;
+    }
+
+
+    /* Full-Viewport Laptop Layout & Larger Typography Overhaul */
+    header, .soc-ticker, .nav-bar {
+      padding-left: 1.5rem !important;
+      padding-right: 1.5rem !important;
+    }
+    .soc-ticker-inner, main, #main-view, .container {
+      max-width: 97vw !important;
+      width: 97vw !important;
+      margin-left: auto !important;
+      margin-right: auto !important;
+      padding-left: 1rem !important;
+      padding-right: 1rem !important;
+    }
+
+    /* Expand Cards Grid & Remove Tight Corner Padding */
+    .cards-grid, #member-grid {
+      grid-template-columns: repeat(auto-fit, minmax(430px, 1fr)) !important;
+      gap: 1.4rem !important;
+      width: 100% !important;
+    }
+    .outer-card {
+      padding: 1.65rem 1.85rem !important;
+      border-radius: 18px !important;
+      width: 100% !important;
+    }
+    .outer-title {
+      font-size: 1.28rem !important;
+      line-height: 1.35 !important;
+      margin-bottom: 0.55rem !important;
+    }
+    .outer-desc {
+      font-size: 0.98rem !important;
+      line-height: 1.55 !important;
+      margin-bottom: 1.1rem !important;
+    }
+
+    /* Full-Width Card Diagrams & Phase 2 Simulators */
+    .card-diagram {
+      width: 100% !important;
+      min-height: 118px !important;
+      padding: 0.9rem 1.1rem !important;
+    }
+    .card-diagram svg {
+      width: 100% !important;
+      height: 105px !important;
+    }
+    #p2-inline-box, #p2-live-stage {
+      width: 100% !important;
+    }
+    .stage-title {
+      font-size: 1.15rem !important;
+      margin-bottom: 0.85rem !important;
+    }
+    .p2-toolbar {
+      gap: 0.7rem !important;
+      margin-bottom: 1.1rem !important;
+    }
+    .p2-chip {
+      padding: 0.55rem 1.15rem !important;
+      font-size: 0.9rem !important;
+    }
+    .p2-heap-bar, .p2-gantt-bar {
+      min-height: 76px !important;
+      padding: 14px !important;
+      gap: 6px !important;
+    }
+    .p2-block {
+      font-size: 0.92rem !important;
+      border-radius: 10px !important;
+    }
+
+    /* Larger 3D Modal Studio & Metrics Boxes */
+    .studio-window {
+      max-width: 1150px !important;
+      width: 94vw !important;
+    }
+    .metrics-list {
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+      gap: 1rem !important;
+    }
+    .m-tile {
+      padding: 1.1rem 1.25rem !important;
+    }
+    .m-tile .k {
+      font-size: 0.82rem !important;
+    }
+    .m-tile .v {
+      font-size: 1.32rem !important;
+    }
+    .explain-box {
+      padding: 1.25rem 1.4rem !important;
+    }
+    .explain-box h4 {
+      font-size: 1.05rem !important;
+    }
+    .explain-box p {
+      font-size: 0.96rem !important;
+      line-height: 1.6 !important;
+    }
+
+
+    /* 3D DBMS Interactive Stage Animations */
+    @keyframes dbmsPulse {
+      0%, 100% { transform: translateY(0px) scale(1); box-shadow: 0 8px 20px rgba(56, 189, 248, 0.25); }
+      50% { transform: translateY(-5px) scale(1.03); box-shadow: 0 14px 28px rgba(56, 189, 248, 0.45); }
+    }
+    @keyframes dbmsFlowDash {
+      to { stroke-dashoffset: -24; }
+    }
+    .dbms-3d-arena {
+      background: radial-gradient(circle at 50% 20%, #1e293b 0%, #090e1a 100%);
+      border: 1px solid rgba(56, 189, 248, 0.28);
+      border-radius: 16px;
+      padding: 1.15rem;
+      position: relative;
+      overflow: hidden;
+      perspective: 900px;
+    }
+    .dbms-3d-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      gap: 0.75rem;
+      transform-style: preserve-3d;
+    }
+    .dbms-cube {
+      background: linear-gradient(145deg, #1e293b, #0f172a);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      border-bottom: 5px solid #0284c7;
+      border-radius: 14px;
+      padding: 0.85rem 1rem;
+      text-align: center;
+      color: #f8fafc;
+      min-width: 115px;
+      animation: dbmsPulse 3s infinite ease-in-out;
+      transition: all 0.3s ease;
+    }
+    .dbms-cube.danger {
+      border-color: rgba(248, 113, 113, 0.6);
+      border-bottom-color: #ef4444;
+      box-shadow: 0 8px 22px rgba(239, 68, 68, 0.3);
+    }
+    .dbms-cube.success {
+      border-color: rgba(52, 211, 153, 0.6);
+      border-bottom-color: #10b981;
+      box-shadow: 0 8px 22px rgba(16, 185, 129, 0.3);
+    }
+    .dbms-cube.amber {
+      border-color: rgba(251, 191, 36, 0.6);
+      border-bottom-color: #f59e0b;
+      box-shadow: 0 8px 22px rgba(245, 158, 11, 0.3);
+    }
+    .dbms-arrow {
+      font-size: 1.35rem;
+      font-weight: 900;
+      color: #38bdf8;
+      text-shadow: 0 0 10px rgba(56, 189, 248, 0.7);
+    }
+    .btree-level {
+      display: flex;
+      justify-content: center;
+      gap: 0.65rem;
+      margin-bottom: 0.55rem;
+    }
+    .btree-node {
+      padding: 0.35rem 0.75rem;
+      border-radius: 8px;
+      font-size: 0.76rem;
+      font-weight: 900;
+      color: #fff;
+      background: #1e293b;
+      border: 1px solid #334155;
+      transition: all 0.3s ease;
+    }
+    .btree-node.lit {
+      background: linear-gradient(135deg, #0284c7, #10b981);
+      border-color: #6ee7b7;
+      box-shadow: 0 0 16px rgba(16, 185, 129, 0.55);
+      transform: translateY(-2px) scale(1.06);
+    }
+    .btree-node.scan-hit {
+      background: linear-gradient(135deg, #dc2626, #f97316);
+      border-color: #fca5a5;
+      box-shadow: 0 0 14px rgba(239, 68, 68, 0.5);
+    }
+    .wal-page-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 0.55rem;
+      margin-top: 0.85rem;
+    }
+    .wal-page-tile {
+      border-radius: 10px;
+      padding: 0.55rem 0.3rem;
+      text-align: center;
+      font-size: 0.76rem;
+      font-weight: 900;
+      color: #fff;
+      border-bottom: 4px solid rgba(0,0,0,0.4);
+      transition: all 0.35s ease;
+    }
+
+
+    /* 3D OS Interactive Stage Upgrades */
+    .os-3d-block {
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      font-weight: 900;
+      color: #fff;
+      border-top: 1px solid rgba(255,255,255,0.35);
+      border-bottom: 6px solid rgba(0,0,0,0.45);
+      box-shadow: 0 8px 18px rgba(0,0,0,0.4);
+      transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+      transform: translateY(-2px);
+    }
+    .os-3d-block:hover {
+      transform: translateY(-6px) scale(1.04);
+    }
+    .os-track-rail {
+      height: 18px;
+      background: linear-gradient(90deg, #0f172a, #1e293b, #0f172a);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 999px;
+      position: relative;
+      margin: 1.2rem 0 1rem 0;
+      box-shadow: inset 0 2px 8px rgba(0,0,0,0.7);
+    }
+    .os-track-dot {
+      position: absolute;
+      top: 4px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #38bdf8;
+      box-shadow: 0 0 8px #38bdf8;
+      transform: translateX(-50%);
+    }
+    .os-rw-head {
+      position: absolute;
+      top: -9px;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #fde047, #f97316);
+      border: 2px solid #fff;
+      box-shadow: 0 0 22px #f97316, 0 0 40px rgba(249, 115, 22, 0.6);
+      transform: translateX(-50%);
+      transition: left 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.65rem;
+      font-weight: 900;
+      color: #0f172a;
+    }
+
+
+    /* 3D Animated Cyber-Grid & Ambient Depth Background */
+    @keyframes gridScroll {
+      0% { background-position: 0px 0px, 0px 0px; }
+      100% { background-position: 0px 60px, 0px 60px; }
+    }
+    @keyframes orbFloatA {
+      0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+      50% { transform: translate3d(45px, -35px, 0) scale(1.08); }
+    }
+    @keyframes orbFloatB {
+      0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+      50% { transform: translate3d(-50px, 30px, 0) scale(1.1); }
+    }
+    @keyframes cubeSpin3D {
+      0% { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
+      100% { transform: rotateX(360deg) rotateY(360deg) rotateZ(180deg); }
+    }
+
+    body {
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    .bg-3d-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      overflow: hidden;
+      background: radial-gradient(ellipse at 50% 0%, #e0f2fe 0%, #f8fafc 55%, #e2e8f0 100%);
+      transition: background 0.35s ease;
+    }
+    body.dark-soc .bg-3d-canvas {
+      background: radial-gradient(ellipse at 50% -10%, #172554 0%, #060a14 55%, #030712 100%);
+    }
+
+    /* Tilted 3D Perspective Floor Grid */
+    .bg-3d-grid {
+      position: absolute;
+      left: -25%;
+      right: -25%;
+      bottom: -18%;
+      height: 62vh;
+      background-image:
+        linear-gradient(to right, rgba(2, 132, 199, 0.14) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(2, 132, 199, 0.14) 1px, transparent 1px);
+      background-size: 60px 60px;
+      transform: perspective(750px) rotateX(64deg);
+      transform-origin: center bottom;
+      mask-image: linear-gradient(to top, rgba(0,0,0,0.95) 15%, transparent 90%);
+      -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,0.95) 15%, transparent 90%);
+      animation: gridScroll 3.5s linear infinite;
+    }
+    body.dark-soc .bg-3d-grid {
+      background-image:
+        linear-gradient(to right, rgba(56, 189, 248, 0.22) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(139, 92, 246, 0.22) 1px, transparent 1px);
+    }
+
+    /* Ambient 3D Glow Orbs */
+    .bg-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(75px);
+      opacity: 0.45;
+    }
+    .bg-orb-1 {
+      width: 440px;
+      height: 440px;
+      top: -90px;
+      left: 8%;
+      background: radial-gradient(circle, #38bdf8, transparent 70%);
+      animation: orbFloatA 14s ease-in-out infinite;
+    }
+    .bg-orb-2 {
+      width: 480px;
+      height: 480px;
+      top: 18%;
+      right: 6%;
+      background: radial-gradient(circle, #8b5cf6, transparent 70%);
+      animation: orbFloatB 17s ease-in-out infinite;
+    }
+    body.dark-soc .bg-orb {
+      opacity: 0.38;
+    }
+
+    /* Floating Wireframe 3D Cubes */
+    .bg-wire-cube {
+      position: absolute;
+      width: 90px;
+      height: 90px;
+      border: 1.5px solid rgba(56, 189, 248, 0.25);
+      border-radius: 16px;
+      box-shadow: inset 0 0 18px rgba(56, 189, 248, 0.12);
+      animation: cubeSpin3D 26s linear infinite;
+    }
+    .bg-wire-cube.c1 { top: 14%; left: 4%; }
+    .bg-wire-cube.c2 { top: 48%; right: 3%; width: 120px; height: 120px; border-color: rgba(168, 85, 247, 0.25); animation-duration: 34s; }
+
+    /* Frosted Glass Elevation for Cards over 3D Canvas */
+    .outer-card {
+      backdrop-filter: blur(12px) !important;
+      -webkit-backdrop-filter: blur(12px) !important;
+      box-shadow: 0 12px 32px rgba(2, 6, 23, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+    }
+    body.dark-soc .outer-card {
+      background: rgba(15, 23, 42, 0.82) !important;
+      border-color: rgba(56, 189, 248, 0.22) !important;
+      box-shadow: 0 16px 38px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+    }
+
+
+    /* Make body background transparent so .bg-3d-canvas is 100% visible */
+    html, body, body.dark-soc {
+      background: transparent !important;
+      background-color: transparent !important;
+    }
+    .bg-3d-canvas {
+      z-index: 0 !important;
+    }
+    header, .soc-ticker, .nav-bar, main, #main-view, .container, .studio-overlay {
+      position: relative;
+      z-index: 1;
+    }
+    .bg-3d-grid {
+      opacity: 0.95 !important;
+      height: 70vh !important;
+    }
+    .bg-wire-cube {
+      border-width: 2px !important;
+      border-color: rgba(56, 189, 248, 0.45) !important;
+    }
+
+  
+    .bg-3d-grid, .bg-wire-cube { display: none !important; }
+    #webgl-3d-bg {
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      z-index: 1 !important;
+      pointer-events: none !important;
+      display: block !important;
+    }
+    header, .soc-ticker, .nav-bar, main, #main-view, .container, .studio-overlay {
+      position: relative !important;
+      z-index: 3 !important;
+    }
+
+  </style>
+  <style id="sentinel-3d-bg-override">
+    html, body, body.dark-soc, #main-view, main, .container, .app-shell {
+      background: transparent !important;
+      background-color: transparent !important;
+    }
+    .bg-3d-canvas {
+      position: fixed !important;
+      inset: 0 !important;
+      z-index: 0 !important;
+      pointer-events: none !important;
+      display: block !important;
+      background: radial-gradient(ellipse at 50% 0%, #bae6fd 0%, #f1f5f9 60%, #cbd5e1 100%) !important;
+    }
+    body.dark-soc .bg-3d-canvas {
+      background: radial-gradient(ellipse at 50% -10%, #1e1b4b 0%, #050814 55%, #02040a 100%) !important;
+    }
+    .bg-3d-grid {
+      position: absolute !important;
+      left: -30% !important;
+      right: -30% !important;
+      bottom: -15% !important;
+      height: 75vh !important;
+      background-image:
+        linear-gradient(to right, rgba(2, 132, 199, 0.28) 2px, transparent 2px),
+        linear-gradient(to bottom, rgba(2, 132, 199, 0.28) 2px, transparent 2px) !important;
+      background-size: 64px 64px !important;
+      transform: perspective(680px) rotateX(62deg) !important;
+      transform-origin: center bottom !important;
+      animation: gridScroll 3s linear infinite !important;
+    }
+    body.dark-soc .bg-3d-grid {
+      background-image:
+        linear-gradient(to right, rgba(56, 189, 248, 0.36) 2px, transparent 2px),
+        linear-gradient(to bottom, rgba(168, 85, 247, 0.36) 2px, transparent 2px) !important;
+    }
+    .bg-wire-cube {
+      position: absolute !important;
+      width: 110px !important;
+      height: 110px !important;
+      border: 2.5px solid rgba(56, 189, 248, 0.5) !important;
+      border-radius: 18px !important;
+      box-shadow: 0 0 25px rgba(56, 189, 248, 0.25), inset 0 0 20px rgba(56, 189, 248, 0.2) !important;
+      animation: cubeSpin3D 22s linear infinite !important;
+    }
+    .bg-wire-cube.c1 { top: 12% !important; left: 3% !important; }
+    .bg-wire-cube.c2 { top: 45% !important; right: 3% !important; width: 140px !important; height: 140px !important; border-color: rgba(168, 85, 247, 0.5) !important; }
+    header, .soc-ticker, .nav-bar, main, #main-view, .container, .studio-overlay {
+      position: relative;
+      z-index: 2;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style id="sentinel-webgl-3d">
+    #webgl-3d-bg {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 0;
+      pointer-events: none;
+    }
+    .outer-card {
+      transform-style: preserve-3d;
+      transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease !important;
+      position: relative;
+      overflow: hidden;
+    }
+    .outer-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(56, 189, 248, 0.14), transparent 55%);
+      opacity: 0;
+      transition: opacity 0.25s ease;
+      pointer-events: none;
+    }
+    .outer-card:hover::after {
+      opacity: 1;
+    }
+    .outer-card:hover {
+      box-shadow: 0 22px 48px rgba(2, 132, 199, 0.24), 0 0 0 1px rgba(56, 189, 248, 0.45) !important;
+    }
+    body.dark-soc .outer-card:hover {
+      box-shadow: 0 24px 54px rgba(0, 0, 0, 0.75), 0 0 24px rgba(56, 189, 248, 0.3) !important;
+    }
+    .dbms-3d-arena {
+      box-shadow: inset 0 0 40px rgba(2, 132, 199, 0.16), 0 14px 30px rgba(0, 0, 0, 0.45) !important;
+      border: 1px solid rgba(56, 189, 248, 0.38) !important;
+    }
+  </style>
 </head>
-<body class="bg-slate-950 text-slate-100 font-sans min-h-screen">
-  <header class="border-b border-slate-800 bg-slate-900/60 px-6 py-4 flex justify-between items-center sticky top-0 z-50 backdrop-blur">
-    <div class="flex items-center space-x-3">
-      <div class="w-3 h-3 rounded-full bg-emerald-500 animate-ping"></div>
-      <h1 class="text-xl font-bold tracking-wider text-white">SENTINEL<span class="text-cyan-400">NET</span></h1>
-      <span class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700">OS & DBMS Evaluation</span>
-    </div>
-    <div class="flex items-center space-x-4">
-      <span class="text-xs text-slate-400">ROLE: <strong class="text-emerald-400">ADMIN (Full Matrix)</strong></span>
-      <span class="text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-full">Pipeline Active</span>
+<body>
+  <canvas id="webgl-3d-bg"></canvas>
+  <div class="bg-3d-canvas" aria-hidden="true">
+    <div class="bg-orb bg-orb-1"></div>
+    <div class="bg-orb bg-orb-2"></div>
+    <div class="bg-wire-cube c1"></div>
+    <div class="bg-wire-cube c2"></div>
+    <div class="bg-3d-grid"></div>
+  </div>
+
+  <!-- Live 3D Architectural Background -->
+  <div class="bg-3d-scene">
+    <div class="bg-grid-floor"></div>
+    <div class="orb-3d orb-1"></div>
+    <div class="orb-3d orb-2"></div>
+    <div class="orb-3d orb-3"></div>
+  </div>
+
+  <header>
+    <div class="header-inner">
+      <div class="brand"><h1>Sentinel<span>Net</span></h1></div>
+      <div style="display:flex; gap:0.6rem; align-items:center;">
+        <button id="theme-toggle" class="tab-btn" style="padding:0.42rem 0.9rem; font-size:0.78rem;" onclick="toggleDarkSOC()">🌙 Cyber SOC</button>
+        <span class="pill" style="background:var(--m1-soft); color:var(--m1);">OS KERNEL</span>
+        <span class="pill" style="background:var(--m3-soft); color:var(--m3);">DBMS ENGINE</span>
+      </div>
     </div>
   </header>
 
-  <div class="max-w-7xl mx-auto px-6 py-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-    <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
-      <p class="text-xs text-slate-400 font-semibold uppercase">Total Packets Ingested</p>
-      <h3 id="stat-packets" class="text-2xl font-bold text-cyan-400 mt-1">0</h3>
-    </div>
-    <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
-      <p class="text-xs text-slate-400 font-semibold uppercase">Ring Buffer Fill Level</p>
-      <h3 class="text-2xl font-bold text-amber-400 mt-1">42% <span class="text-xs text-slate-500 font-normal">(27/64 slots)</span></h3>
-    </div>
-    <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
-      <p class="text-xs text-slate-400 font-semibold uppercase">Threat Events Triggered</p>
-      <h3 id="stat-threats" class="text-2xl font-bold text-rose-400 mt-1">0</h3>
-    </div>
-    <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
-      <p class="text-xs text-slate-400 font-semibold uppercase">Blocked IP Addresses</p>
-      <h3 id="stat-blocked" class="text-2xl font-bold text-red-500 mt-1">0</h3>
+  <!-- Live System Health & Telemetry Ticker -->
+  <div class="soc-ticker">
+    <div class="soc-ticker-inner">
+      <div class="ticker-item"><span class="dot-live"></span> KERNEL RING BUFFER: <span id="tk-ring" style="color:#38bdf8;">24%</span></div>
+      <div class="ticker-item">OS WORKERS: <span style="color:#4ade80;">4/4 LWPs ACTIVE</span></div>
+      <div class="ticker-item">CPU LOAD: <span id="tk-cpu" style="color:#fbbf24;">18.4%</span></div>
+      <div class="ticker-item">DBMS STORAGE: <span style="color:#c084fc;">SQLite WAL + B-TREE SYNCED</span></div>
     </div>
   </div>
 
-  <div class="max-w-7xl mx-auto px-6 mb-6">
-    <div class="flex border-b border-slate-800 space-x-2">
-      <button onclick="switchTab('p1')" id="tab-p1" class="px-4 py-2 border-b-2 border-cyan-400 text-cyan-400 font-semibold text-sm">P1: System Perf (Priyanshu)</button>
-      <button onclick="switchTab('p2')" id="tab-p2" class="px-4 py-2 text-slate-400 font-semibold text-sm hover:text-slate-200">P2: Live Traffic (Anjali)</button>
-      <button onclick="switchTab('p3')" id="tab-p3" class="px-4 py-2 text-slate-400 font-semibold text-sm hover:text-slate-200">P3: DB & Optimization (Aanya)</button>
-      <button onclick="switchTab('p4')" id="tab-p4" class="px-4 py-2 text-slate-400 font-semibold text-sm hover:text-slate-200">P4: Security & Threats (Drishti)</button>
+  <nav class="nav-bar">
+    <div class="nav-inner">
+      <button class="tab-btn active" onclick="switchTab(0, this)">Live Packet Pipeline</button>
+      <button class="tab-btn" onclick="switchTab(1, this)">1. Priyanshu</button>
+      <button class="tab-btn" onclick="switchTab(2, this)">2. Anjali</button>
+      <button class="tab-btn" onclick="switchTab(3, this)">3. Aanya</button>
+      <button class="tab-btn" onclick="switchTab(4, this)">4. Drishti</button>
+    </div>
+  </nav>
+
+  <main id="app-root"></main>
+
+  <!-- Interactive 3D Module Studio Modal -->
+  <div id="studio-modal" class="studio-overlay" onclick="if(event.target===this) closeStudio()">
+    <div class="studio-window">
+      <div class="studio-header">
+        <div>
+          <span id="st-badge" class="pill">OS MODULE</span>
+          <h2 id="st-title" style="font-size:1.4rem; font-weight:900; margin-top:0.3rem;">Module Name</h2>
+        </div>
+        <div style="display:flex; gap:0.55rem; flex-wrap:wrap;">
+          <button id="st-prev" class="tab-btn" title="Previous Module (Left Arrow)">← Prev</button>
+          <button id="st-next" class="tab-btn" title="Next Module (Right Arrow)">Next →</button>
+          <button id="st-rerun" class="btn-action" style="background:var(--m1-grad);">↻ Re-Run Live Engine</button>
+          <button class="tab-btn" onclick="closeStudio()">✕ Close</button>
+        </div>
+      </div>
+      <div id="st-body" class="studio-body"></div>
     </div>
   </div>
 
-  <main class="max-w-7xl mx-auto px-6 pb-12">
-    <div id="panel-p1" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl">
-        <h3 class="text-sm font-semibold text-slate-300 mb-3">Synchronization Benchmark (Throughput)</h3>
-        <canvas id="chartSync" height="180"></canvas>
-      </div>
-      <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl">
-        <h3 class="text-sm font-semibold text-slate-300 mb-3">Top-Talkers Filter Pipeline (grep | awk | uniq)</h3>
-        <pre class="bg-black/50 p-4 rounded text-xs text-emerald-400 font-mono">
-$ awk '{print $2}' traffic.log | sort | uniq -c | sort -nr
-   148 45.33.32.156  [ATTACK VECTOR]
-    82 192.168.1.105 [GATEWAY SYNC]
-    45 10.0.0.15     [CLEAN]
-        </pre>
-      </div>
-    </div>
-
-    <div id="panel-p2" class="hidden">
-      <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl">
-        <h3 class="text-sm font-semibold text-slate-300 mb-3">Parsed Packet Stream (POSIX Pipe Ingest)</h3>
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs">
-            <thead class="text-slate-400 border-b border-slate-800">
-              <tr>
-                <th class="py-2">PKT ID</th><th>Source IP</th><th>Dest IP</th><th>Port</th><th>Protocol</th><th>Size</th><th>Threat Flag</th>
-              </tr>
-            </thead>
-            <tbody id="packet-tbody" class="divide-y divide-slate-800/50"></tbody>
-          </table>
+  <!-- Interactive Packet Inspector Drawer -->
+  <div id="packet-drawer" class="drawer-backdrop" onclick="if(event.target===this) closeInspector()">
+    <div class="inspector-drawer">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:1rem;">
+        <div>
+          <span id="insp-badge" class="pill">PACKET INSPECTOR</span>
+          <h3 id="insp-title" style="font-size:1.2rem; font-weight:900; margin-top:0.3rem;">10.24.9.15:443</h3>
         </div>
+        <button class="tab-btn" onclick="closeInspector()">✕</button>
       </div>
+      <div id="insp-content" style="display:flex; flex-direction:column; gap:1.1rem;"></div>
     </div>
-
-    <div id="panel-p3" class="hidden grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl">
-        <h3 class="text-sm font-semibold text-slate-300 mb-3">Query Execution Latency: Raw Scan vs Index</h3>
-        <canvas id="chartLatency" height="180"></canvas>
-      </div>
-      <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl">
-        <h3 class="text-sm font-semibold text-slate-300 mb-3">Page Replacement Hit Ratio (FIFO vs LRU)</h3>
-        <div class="space-y-4 text-xs mt-4">
-          <div>
-            <div class="flex justify-between mb-1"><span>FIFO Policy (Hit Rate)</span><span>58.3%</span></div>
-            <div class="w-full bg-slate-800 rounded-full h-2"><div class="bg-amber-400 h-2 rounded-full" style="width: 58.3%"></div></div>
-          </div>
-          <div>
-            <div class="flex justify-between mb-1"><span>LRU Policy (Hit Rate)</span><span>75.0%</span></div>
-            <div class="w-full bg-slate-800 rounded-full h-2"><div class="bg-cyan-400 h-2 rounded-full" style="width: 75.0%"></div></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div id="panel-p4" class="hidden grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl">
-        <h3 class="text-sm font-semibold text-slate-300 mb-3 text-red-400">Trigger Auto-Blocked Blacklist</h3>
-        <table class="w-full text-left text-xs">
-          <thead class="text-slate-400 border-b border-slate-800">
-            <tr><th class="py-2">Attacker IP</th><th>Malformed Count</th><th>Status</th></tr>
-          </thead>
-          <tbody id="blocked-tbody" class="divide-y divide-slate-800/50"></tbody>
-        </table>
-      </div>
-      <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl">
-        <h3 class="text-sm font-semibold text-slate-300 mb-3">Banker's Algorithm State Inspector</h3>
-        <div class="bg-emerald-500/10 border border-emerald-500/20 p-3 rounded text-xs text-emerald-400 mb-4">
-          SYSTEM STATE: SAFE — All DB connection requests maintain deadlock-free sequence.
-        </div>
-        <div id="threat-alerts" class="space-y-2 text-xs"></div>
-      </div>
-    </div>
-  </main>
+  </div>
 
   <script>
-    function switchTab(id) {
-      ['p1', 'p2', 'p3', 'p4'].forEach(p => {
-        document.getElementById('panel-' + p).classList.add('hidden');
-        document.getElementById('tab-' + p).className = 'px-4 py-2 text-slate-400 font-semibold text-sm hover:text-slate-200';
-      });
-      document.getElementById('panel-' + id).classList.remove('hidden');
-      document.getElementById('tab-' + id).className = 'px-4 py-2 border-b-2 border-cyan-400 text-cyan-400 font-semibold text-sm';
+    const MEMBER_THEMES = {
+      1: { color: "#0284c7", grad: "var(--m1-grad)", soft: "var(--m1-soft)" },
+      2: { color: "#059669", grad: "var(--m2-grad)", soft: "var(--m2-soft)" },
+      3: { color: "#7c3aed", grad: "var(--m3-grad)", soft: "var(--m3-soft)" },
+      4: { color: "#ea580c", grad: "var(--m4-grad)", soft: "var(--m4-soft)" }
+    };
+
+    /* Custom Visual Diagram SVGs for Every Single Card */
+    function getCardDiagramSVG(modId, accent) {
+      const svgs = {
+        syscalls: `
+          <svg viewBox="0 0 320 90">
+            <rect x="10" y="14" width="84" height="62" rx="12" fill="#e0f2fe" stroke="${accent}" stroke-width="2"/>
+            <text x="52" y="42" text-anchor="middle" font-size="11" font-weight="800" fill="#0f172a">USER SPACE</text>
+            <text x="52" y="58" text-anchor="middle" font-size="9" fill="#475569">App Buffer</text>
+            <path d="M98 35 L218 35" stroke="${accent}" stroke-width="2.5" stroke-dasharray="5 3"/>
+            <polygon points="218,35 210,30 210,40" fill="${accent}"/>
+            <text x="158" y="27" text-anchor="middle" font-size="9" font-weight="800" fill="${accent}">TRAP / SYSCALL</text>
+            <path d="M218 58 L98 58" stroke="#16a34a" stroke-width="2.5"/>
+            <polygon points="98,58 106,53 106,63" fill="#16a34a"/>
+            <rect x="224" y="14" width="86" height="62" rx="12" fill="#0f172a"/>
+            <text x="267" y="42" text-anchor="middle" font-size="11" font-weight="800" fill="#38bdf8">KERNEL</text>
+            <text x="267" y="58" text-anchor="middle" font-size="9" fill="#94a3b8">Ring 0 I/O</text>
+          </svg>`,
+        sync: `
+          <svg viewBox="0 0 320 90">
+            <circle cx="42" cy="24" r="14" fill="#e0f2fe" stroke="${accent}" stroke-width="2"/>
+            <text x="42" y="28" text-anchor="middle" font-size="10" font-weight="800" fill="#0f172a">T1</text>
+            <circle cx="42" cy="66" r="14" fill="#e0f2fe" stroke="${accent}" stroke-width="2"/>
+            <text x="42" y="70" text-anchor="middle" font-size="10" font-weight="800" fill="#0f172a">T2</text>
+            <path d="M60 28 L120 42 M60 62 L120 48" stroke="#64748b" stroke-width="2"/>
+            <rect x="122" y="22" width="76" height="46" rx="12" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+            <text x="160" y="43" text-anchor="middle" font-size="10" font-weight="900" fill="#92400e">MUTEX</text>
+            <text x="160" y="57" text-anchor="middle" font-size="9" fill="#b45309">Lock Guard</text>
+            <path d="M202 45 L234 45" stroke="#16a34a" stroke-width="2.5"/>
+            <rect x="236" y="18" width="74" height="54" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+            <text x="273" y="43" text-anchor="middle" font-size="10" font-weight="800" fill="#14532d">RING</text>
+            <text x="273" y="57" text-anchor="middle" font-size="9" fill="#15803d">0 Races</text>
+          </svg>`,
+        paging: `
+          <svg viewBox="0 0 320 90">
+            <rect x="8" y="20" width="78" height="50" rx="10" fill="#e0f2fe" stroke="${accent}" stroke-width="2"/>
+            <text x="47" y="43" text-anchor="middle" font-size="10" font-weight="800">Virtual</text>
+            <text x="47" y="57" text-anchor="middle" font-size="9" fill="#475569">0x4A2F</text>
+            <path d="M90 45 L120 45" stroke="${accent}" stroke-width="2.5"/>
+            <rect x="122" y="14" width="78" height="62" rx="12" fill="#0f172a"/>
+            <text x="161" y="41" text-anchor="middle" font-size="11" font-weight="900" fill="#38bdf8">TLB CACHE</text>
+            <text x="161" y="57" text-anchor="middle" font-size="9" fill="#22c55e">92% HIT</text>
+            <path d="M204 45 L232 45" stroke="#16a34a" stroke-width="2.5"/>
+            <rect x="234" y="20" width="78" height="50" rx="10" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+            <text x="273" y="43" text-anchor="middle" font-size="10" font-weight="800" fill="#14532d">RAM Frame</text>
+            <text x="273" y="57" text-anchor="middle" font-size="9" fill="#15803d">Physical</text>
+          </svg>`,
+        embedded_sql: `
+          <svg viewBox="0 0 320 90">
+            <rect x="10" y="20" width="84" height="50" rx="10" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+            <text x="52" y="43" text-anchor="middle" font-size="10" font-weight="800">C Struct</text>
+            <text x="52" y="57" text-anchor="middle" font-size="9" fill="#5b21b6">Host Vars</text>
+            <path d="M98 45 L126 45" stroke="#7c3aed" stroke-width="2.5"/>
+            <rect x="128" y="16" width="82" height="58" rx="12" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+            <text x="169" y="41" text-anchor="middle" font-size="10" font-weight="900" fill="#991b1b">SQLi SHIELD</text>
+            <text x="169" y="56" text-anchor="middle" font-size="9" fill="#dc2626">Bind (?, ?)</text>
+            <path d="M214 45 L238 45" stroke="#16a34a" stroke-width="2.5"/>
+            <ellipse cx="275" cy="45" rx="35" ry="24" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+            <text x="275" y="48" text-anchor="middle" font-size="10" font-weight="900" fill="#14532d">SQLite3</text>
+          </svg>`,
+        mvcc: `
+          <svg viewBox="0 0 320 90">
+            <line x1="20" y1="45" x2="300" y2="45" stroke="#cbd5e1" stroke-width="3"/>
+            <rect x="26" y="14" width="76" height="24" rx="7" fill="#e0f2fe" stroke="#0284c7" stroke-width="1.8"/>
+            <text x="64" y="30" text-anchor="middle" font-size="9" font-weight="800">T1 Read-TS</text>
+            <rect x="122" y="52" width="78" height="24" rx="7" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.8"/>
+            <text x="161" y="68" text-anchor="middle" font-size="9" font-weight="800">T2 Write-TS</text>
+            <rect x="220" y="14" width="76" height="24" rx="7" fill="#dcfce7" stroke="#16a34a" stroke-width="1.8"/>
+            <text x="258" y="30" text-anchor="middle" font-size="9" font-weight="800" fill="#14532d">SERIAL OK</text>
+          </svg>`,
+        ipc: `
+          <svg viewBox="0 0 320 90">
+            <rect x="12" y="18" width="82" height="54" rx="12" fill="#d1fae5" stroke="#059669" stroke-width="2"/>
+            <text x="53" y="43" text-anchor="middle" font-size="10" font-weight="900" fill="#064e3b">PARENT</text>
+            <text x="53" y="57" text-anchor="middle" font-size="9" fill="#047857">fork()</text>
+            <rect x="112" y="34" width="96" height="22" rx="11" fill="#0f172a"/>
+            <text x="160" y="48" text-anchor="middle" font-size="9" font-weight="800" fill="#34d399">KERNEL PIPE ➔</text>
+            <rect x="226" y="18" width="82" height="54" rx="12" fill="#e0f2fe" stroke="#0284c7" stroke-width="2"/>
+            <text x="267" y="43" text-anchor="middle" font-size="10" font-weight="900" fill="#0c4a6e">WORKER</text>
+            <text x="267" y="57" text-anchor="middle" font-size="9" fill="#0369a1">Child PID</text>
+          </svg>`,
+        threads: `
+          <svg viewBox="0 0 320 90">
+            ${[16, 36, 56, 76].map((y, i) => `
+              <rect x="24" y="${y-8}" width="78" height="15" rx="6" fill="#d1fae5" stroke="#059669" stroke-width="1.5"/>
+              <text x="63" y="${y+3}" text-anchor="middle" font-size="8.5" font-weight="800">User Thread ${i}</text>
+              <line x1="106" y1="${y}" x2="208" y2="${y}" stroke="#059669" stroke-width="2" stroke-dasharray="4 2"/>
+              <rect x="212" y="${y-8}" width="84" height="15" rx="6" fill="#0f172a"/>
+              <text x="254" y="${y+3}" text-anchor="middle" font-size="8.5" font-weight="800" fill="#34d399">Kernel LWP ${i}</text>
+            `).join("")}
+          </svg>`,
+        scheduler: `
+          <svg viewBox="0 0 320 90">
+            <rect x="25" y="10" width="270" height="20" rx="7" fill="#fee2e2" stroke="#dc2626" stroke-width="1.8"/>
+            <text x="160" y="23" text-anchor="middle" font-size="9.5" font-weight="900" fill="#991b1b">Q0: REALTIME THREAT ALERTS (HIGH PRIORITY)</text>
+            <rect x="45" y="36" width="230" height="20" rx="7" fill="#d1fae5" stroke="#059669" stroke-width="1.8"/>
+            <text x="160" y="49" text-anchor="middle" font-size="9.5" font-weight="800" fill="#065f46">Q1: INTERACTIVE PACKET WORKERS</text>
+            <rect x="65" y="62" width="190" height="20" rx="7" fill="#e0f2fe" stroke="#0284c7" stroke-width="1.8"/>
+            <text x="160" y="75" text-anchor="middle" font-size="9.5" font-weight="800" fill="#075985">Q2: BATCH LOGS + AGING BOOST</text>
+          </svg>`,
+        flatfile_vs_db: `
+          <svg viewBox="0 0 320 90">
+            <rect x="20" y="16" width="115" height="58" rx="12" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+            <text x="77" y="40" text-anchor="middle" font-size="10" font-weight="900" fill="#991b1b">CSV FLAT FILE</text>
+            <text x="77" y="56" text-anchor="middle" font-size="9" fill="#b91c1c">O(N) Linear Scan</text>
+            <text x="160" y="49" text-anchor="middle" font-size="12" font-weight="900" fill="#64748b">VS</text>
+            <rect x="185" y="16" width="115" height="58" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+            <text x="242" y="40" text-anchor="middle" font-size="10" font-weight="900" fill="#14532d">RELATIONAL DB</text>
+            <text x="242" y="56" text-anchor="middle" font-size="9" fill="#15803d">O(log N) Indexed</text>
+          </svg>`,
+        optimizer: `
+          <svg viewBox="0 0 320 90">
+            <rect x="18" y="16" width="112" height="58" rx="12" fill="#ffedd5" stroke="#ea580c" stroke-width="2"/>
+            <text x="74" y="40" text-anchor="middle" font-size="9.5" font-weight="900" fill="#9a3412">NESTED LOOP</text>
+            <text x="74" y="56" text-anchor="middle" font-size="9" fill="#c2410c">High Disk I/O</text>
+            <path d="M136 45 L182 45" stroke="#059669" stroke-width="3"/>
+            <polygon points="182,45 174,40 174,50" fill="#059669"/>
+            <rect x="188" y="16" width="114" height="58" rx="12" fill="#d1fae5" stroke="#059669" stroke-width="2"/>
+            <text x="245" y="40" text-anchor="middle" font-size="9.5" font-weight="900" fill="#064e3b">HASH JOIN</text>
+            <text x="245" y="56" text-anchor="middle" font-size="9" fill="#047857">Push-Down Filter</text>
+          </svg>`,
+        working_set: `
+          <svg viewBox="0 0 320 90">
+            <rect x="24" y="34" width="44" height="44" rx="8" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+            <text x="46" y="60" text-anchor="middle" font-size="9" font-weight="800">3 Fr</text>
+            <rect x="82" y="20" width="44" height="58" rx="8" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+            <text x="104" y="52" text-anchor="middle" font-size="9" font-weight="800" fill="#991b1b">Belady</text>
+            <rect x="140" y="48" width="44" height="30" rx="8" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+            <text x="162" y="67" text-anchor="middle" font-size="9" font-weight="800" fill="#14532d">LRU</text>
+            <rect x="204" y="18" width="96" height="58" rx="12" fill="#0f172a"/>
+            <text x="252" y="44" text-anchor="middle" font-size="10" font-weight="900" fill="#c084fc">THRASH</text>
+            <text x="252" y="59" text-anchor="middle" font-size="9" fill="#22c55e">GUARD ACTIVE</text>
+          </svg>`,
+        log_fs: `
+          <svg viewBox="0 0 320 90">
+            <rect x="16" y="16" width="132" height="58" rx="12" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+            <text x="82" y="39" text-anchor="middle" font-size="10" font-weight="900" fill="#4c1d95">ACL MATRIX</text>
+            <text x="82" y="56" text-anchor="middle" font-size="9" fill="#6d28d9">RWX Domain Lock</text>
+            <path d="M154 45 L178 45" stroke="#7c3aed" stroke-width="2.5"/>
+            <rect x="182" y="16" width="122" height="58" rx="12" fill="#0f172a"/>
+            <text x="243" y="39" text-anchor="middle" font-size="10" font-weight="900" fill="#c084fc">APPEND LOG</text>
+            <text x="243" y="56" text-anchor="middle" font-size="9" fill="#94a3b8">Immutable Audit</text>
+          </svg>`,
+        index_nosql: `
+          <svg viewBox="0 0 320 90">
+            <rect x="122" y="10" width="76" height="22" rx="7" fill="#7c3aed"/>
+            <text x="160" y="24" text-anchor="middle" font-size="9.5" font-weight="900" fill="#fff">B-TREE ROOT</text>
+            <path d="M140 32 L78 52 M180 32 L242 52" stroke="#7c3aed" stroke-width="2"/>
+            <rect x="26" y="52" width="104" height="26" rx="8" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.8"/>
+            <text x="78" y="69" text-anchor="middle" font-size="9" font-weight="800">Leaf Range 1</text>
+            <rect x="190" y="52" width="104" height="26" rx="8" fill="#dcfce7" stroke="#16a34a" stroke-width="1.8"/>
+            <text x="242" y="69" text-anchor="middle" font-size="9" font-weight="900" fill="#14532d">35.9x FASTER</text>
+          </svg>`,
+        media_recovery: `
+          <svg viewBox="0 0 320 90">
+            <rect x="14" y="20" width="80" height="50" rx="10" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+            <text x="54" y="43" text-anchor="middle" font-size="9.5" font-weight="900" fill="#991b1b">DISK CRASH</text>
+            <text x="54" y="57" text-anchor="middle" font-size="8.5" fill="#dc2626">Data Lost</text>
+            <path d="M98 45 L122 45" stroke="#7c3aed" stroke-width="2.5"/>
+            <rect x="124" y="20" width="78" height="50" rx="10" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+            <text x="163" y="43" text-anchor="middle" font-size="9.5" font-weight="900" fill="#4c1d95">HOT BACKUP</text>
+            <text x="163" y="57" text-anchor="middle" font-size="8.5" fill="#6d28d9">+ SQL Dump</text>
+            <path d="M206 45 L228 45" stroke="#16a34a" stroke-width="2.5"/>
+            <rect x="230" y="20" width="78" height="50" rx="10" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+            <text x="269" y="43" text-anchor="middle" font-size="9.5" font-weight="900" fill="#14532d">100%</text>
+            <text x="269" y="57" text-anchor="middle" font-size="8.5" fill="#15803d">RESTORED</text>
+          </svg>`,
+        deadlock: `
+          <svg viewBox="0 0 320 90">
+            ${["P1", "P3", "P0", "P2"].map((p, i) => `
+              <rect x="${18 + i*74}" y="22" width="54" height="46" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+              <text x="${45 + i*74}" y="44" text-anchor="middle" font-size="11" font-weight="900" fill="#14532d">${p}</text>
+              <text x="${45 + i*74}" y="58" text-anchor="middle" font-size="8" font-weight="800" fill="#15803d">SAFE</text>
+              ${i < 3 ? `<path d="M${74 + i*74} 45 L${90 + i*74} 45" stroke="#ea580c" stroke-width="2.5"/>` : ''}
+            `).join("")}
+          </svg>`,
+        raid: `
+          <svg viewBox="0 0 320 90">
+            <rect x="18" y="16" width="62" height="58" rx="10" fill="#fff" stroke="#64748b" stroke-width="2"/>
+            <text x="49" y="44" text-anchor="middle" font-size="10" font-weight="900">DISK 0</text>
+            <text x="49" y="59" text-anchor="middle" font-size="8" fill="#64748b">OK</text>
+            <rect x="92" y="16" width="62" height="58" rx="10" fill="#dcfce7" stroke="#16a34a" stroke-width="2.5"/>
+            <text x="123" y="44" text-anchor="middle" font-size="10" font-weight="900" fill="#14532d">DISK 1</text>
+            <text x="123" y="59" text-anchor="middle" font-size="8" font-weight="800" fill="#16a34a">REBUILT</text>
+            <rect x="166" y="16" width="62" height="58" rx="10" fill="#fff" stroke="#64748b" stroke-width="2"/>
+            <text x="197" y="44" text-anchor="middle" font-size="10" font-weight="900">DISK 2</text>
+            <text x="197" y="59" text-anchor="middle" font-size="8" fill="#64748b">OK</text>
+            <rect x="240" y="16" width="62" height="58" rx="10" fill="#ffedd5" stroke="#ea580c" stroke-width="2"/>
+            <text x="271" y="44" text-anchor="middle" font-size="10" font-weight="900" fill="#9a3412">PARITY</text>
+            <text x="271" y="59" text-anchor="middle" font-size="8" font-weight="800" fill="#ea580c">XOR</text>
+          </svg>`,
+        block_alloc: `
+          <svg viewBox="0 0 320 90">
+            ${Array.from({length: 16}, (_, i) => {
+              const x = 16 + (i % 8) * 37;
+              const y = 16 + Math.floor(i / 8) * 32;
+              const fill = i === 3 ? "#ef4444" : (i < 6 ? "#0284c7" : (i < 12 ? "#16a34a" : "#cbd5e1"));
+              return `<rect x="${x}" y="${y}" width="30" height="24" rx="5" fill="${fill}"/>`;
+            }).join("")}
+          </svg>`,
+        acid_tx: `
+          <svg viewBox="0 0 320 90">
+            <rect x="14" y="22" width="84" height="46" rx="10" fill="#ffedd5" stroke="#ea580c" stroke-width="2"/>
+            <text x="56" y="44" text-anchor="middle" font-size="9.5" font-weight="900">BEGIN TX</text>
+            <text x="56" y="58" text-anchor="middle" font-size="8">WAL Mode</text>
+            <path d="M102 45 L120 45" stroke="#64748b" stroke-width="2"/>
+            <rect x="122" y="22" width="88" height="46" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+            <text x="166" y="44" text-anchor="middle" font-size="9" font-weight="900" fill="#991b1b">SAVEPOINT</text>
+            <text x="166" y="58" text-anchor="middle" font-size="8" fill="#dc2626">Partial Undo</text>
+            <path d="M214 45 L232 45" stroke="#16a34a" stroke-width="2"/>
+            <rect x="234" y="22" width="74" height="46" rx="10" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+            <text x="271" y="48" text-anchor="middle" font-size="9.5" font-weight="900" fill="#14532d">COMMIT</text>
+          </svg>`,
+        aries_crash: `
+          <svg viewBox="0 0 320 90">
+            <rect x="14" y="22" width="84" height="46" rx="10" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+            <text x="56" y="48" text-anchor="middle" font-size="9.5" font-weight="900">1. ANALYSIS</text>
+            <path d="M102 45 L118 45" stroke="#64748b" stroke-width="2"/>
+            <rect x="120" y="22" width="84" height="46" rx="10" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+            <text x="162" y="48" text-anchor="middle" font-size="9.5" font-weight="900" fill="#14532d">2. REDO</text>
+            <path d="M208 45 L224 45" stroke="#64748b" stroke-width="2"/>
+            <rect x="226" y="22" width="80" height="46" rx="10" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+            <text x="266" y="48" text-anchor="middle" font-size="9.5" font-weight="900" fill="#991b1b">3. UNDO</text>
+          </svg>`
+      };
+      return svgs[modId] || svgs.ipc;
     }
 
-    new Chart(document.getElementById('chartSync'), {
-      type: 'bar',
-      data: {
-        labels: ['Peterson Alg', 'Mutex + Sem', 'C11 Atomics'],
-        datasets: [{ data: [1200, 24000, 31000], backgroundColor: ['#f59e0b', '#06b6d4', '#10b981'] }]
+    const MODULE_DETAILS = {
+      syscalls: {
+        short: "Measures user-to-kernel transition latency across packet syscalls.",
+        how: "Compares lightweight process ID calls against kernel I/O read/write traps and zero-copy shared mmap buffers.",
+        type: "pillars",
+        bars: [
+          { label: "User getpid()", val: 18, unit: "ns", color: "linear-gradient(180deg, #38bdf8, #0284c7)" },
+          { label: "Kernel read/write", val: 85, unit: "ns", color: "linear-gradient(180deg, #f59e0b, #d97706)" },
+          { label: "Zero-Copy mmap", val: 26, unit: "ns", color: "linear-gradient(180deg, #22c55e, #16a34a)" }
+        ]
       },
-      options: { plugins: { legend: { display: false } } }
-    });
+      sync: {
+        short: "Benchmarks Mutex, Spinlock, and Semaphore thread contention.",
+        how: "Simulates high-speed packet threads competing for shared ring-buffer locks without race conditions.",
+        type: "pillars",
+        bars: [
+          { label: "Spinlock", val: 42, unit: "µs", color: "linear-gradient(180deg, #38bdf8, #0284c7)" },
+          { label: "POSIX Mutex", val: 64, unit: "µs", color: "linear-gradient(180deg, #818cf8, #4f46e5)" },
+          { label: "Semaphore", val: 78, unit: "µs", color: "linear-gradient(180deg, #22c55e, #16a34a)" }
+        ]
+      },
+      paging: {
+        short: "Simulates 2-level page tables, segmentation, and TLB hits.",
+        how: "Translates virtual packet memory addresses into physical RAM frames using a fast Translation Lookaside Buffer.",
+        type: "ring",
+        pct: 92,
+        ringLabel: "TLB HIT RATE"
+      },
+      embedded_sql: {
+        short: "Executes parameterized C SQL queries to block SQL injection.",
+        how: "Binds C host variables directly into compiled SQLite statements so malicious payloads cannot alter query logic.",
+        type: "nodes",
+        nodes: ["C Packet Buffer", "Host Variable Bind", "Prepared SQLite3", "Safe Row Commit"]
+      },
+      mvcc: {
+        short: "Enforces Read/Write timestamp ordering for concurrent transactions.",
+        how: "Prevents dirty reads and stale overwrites when alert dashboards read while packet workers write.",
+        type: "nodes",
+        nodes: ["T1 Read-TS(10)", "T2 Write-TS(12)", "Timestamp Check", "Serial Commit"]
+      },
+      ipc: {
+        short: "Streams packet telemetry between forked processes via kernel pipes.",
+        how: "A supervisor process forks child packet analyzers and collects live byte streams over anonymous OS pipes.",
+        type: "nodes",
+        nodes: ["Supervisor PID", "Anonymous Pipe", "Child Analyzer", "Clean Exit (0)"]
+      },
+      threads: {
+        short: "Maps user worker threads 1:1 onto Linux kernel LWPs.",
+        how: "Each worker thread gets isolated Thread-Local Storage (TLS) to count packets without lock bottlenecks.",
+        type: "pillars",
+        bars: [
+          { label: "Worker T0", val: 94, unit: "pkts", color: "linear-gradient(180deg, #34d399, #059669)" },
+          { label: "Worker T1", val: 82, unit: "pkts", color: "linear-gradient(180deg, #2dd4bf, #0d9488)" },
+          { label: "Worker T2", val: 88, unit: "pkts", color: "linear-gradient(180deg, #38bdf8, #0284c7)" },
+          { label: "Worker T3", val: 76, unit: "pkts", color: "linear-gradient(180deg, #22c55e, #16a34a)" }
+        ]
+      },
+      scheduler: {
+        short: "Schedules urgent threat alerts ahead of background logs via MLFQ.",
+        how: "High-risk SYN/SQL bursts execute immediately in Queue Q0 while long batch jobs demote to Q1/Q2 with aging.",
+        type: "pillars",
+        bars: [
+          { label: "Q0 Realtime", val: 96, unit: "prio", color: "linear-gradient(180deg, #ef4444, #dc2626)" },
+          { label: "Q1 Interactive", val: 62, unit: "prio", color: "linear-gradient(180deg, #34d399, #059669)" },
+          { label: "Q2 Batch + Aging", val: 35, unit: "prio", color: "linear-gradient(180deg, #38bdf8, #0284c7)" }
+        ]
+      },
+      flatfile_vs_db: {
+        short: "Compares raw CSV flat-file scans against indexed relational tables.",
+        how: "Proves how normalized relational schemas eliminate duplicate IP storage and cut query lookup time dramatically.",
+        type: "pillars",
+        bars: [
+          { label: "CSV Flat File", val: 95, unit: "ms", color: "linear-gradient(180deg, #f87171, #dc2626)" },
+          { label: "Indexed DBMS", val: 14, unit: "ms", color: "linear-gradient(180deg, #34d399, #059669)" }
+        ]
+      },
+      optimizer: {
+        short: "Lowers query I/O cost using selection push-down and Hash Joins.",
+        how: "Filters high-threat rows before joining tables, slashing intermediate tuple comparisons.",
+        type: "pillars",
+        bars: [
+          { label: "Nested Loop", val: 92, unit: "cost", color: "linear-gradient(180deg, #fb923c, #ea580c)" },
+          { label: "Push-Down Hash", val: 21, unit: "cost", color: "linear-gradient(180deg, #34d399, #059669)" }
+        ]
+      },
+      working_set: {
+        short: "Detects page thrashing and Belady's FIFO frame anomaly.",
+        how: "Monitors page-fault frequency across 3 vs. 4 memory frames and suspends processes exceeding the thrashing threshold.",
+        type: "pillars",
+        bars: [
+          { label: "3 Frames (FIFO)", val: 68, unit: "faults", color: "linear-gradient(180deg, #c084fc, #7c3aed)" },
+          { label: "4 Frames (Belady)", val: 82, unit: "faults", color: "linear-gradient(180deg, #f43f5e, #e11d48)" },
+          { label: "LRU Optimal", val: 34, unit: "faults", color: "linear-gradient(180deg, #22c55e, #16a34a)" }
+        ]
+      },
+      log_fs: {
+        short: "Appends tamper-evident forensic logs with RWX access control.",
+        how: "Writes security audit records sequentially and verifies domain permissions before allowing read or write access.",
+        type: "nodes",
+        nodes: ["Admin: RWX", "Sensor: -W-", "Analyst: R--", "Append Segment OK"]
+      },
+      index_nosql: {
+        short: "Accelerates alert queries with composite B-Tree indexes.",
+        how: "Replaces full table scans with composite (severity, source_ip) B-Tree lookups and flexible JSON document storage.",
+        type: "pillars",
+        bars: [
+          { label: "Full Table Scan", val: 96, unit: "ms", color: "linear-gradient(180deg, #f43f5e, #be123c)" },
+          { label: "Composite B-Tree", val: 12, unit: "ms", color: "linear-gradient(180deg, #a855f7, #7c3aed)" }
+        ]
+      },
+      media_recovery: {
+        short: "Restores corrupted database files from hot backups with 0% loss.",
+        how: "Simulates catastrophic storage failure, restores from a binary hot backup + SQL dump, and verifies row counts.",
+        type: "nodes",
+        nodes: ["Disk Failure", "Hot Backup Load", "WAL Replay", "100% Rows Restored"]
+      },
+      deadlock: {
+        short: "Finds safe execution states and breaks Wait-For Graph cycles.",
+        how: "Runs Banker's safety matrix check and preempts a victim process whenever a circular resource deadlock is injected.",
+        type: "nodes",
+        nodes: ["P1 Safe", "P3 Safe", "P0 Safe", "P2 Safe (Cycle Broken)"]
+      },
+      raid: {
+        short: "Optimizes disk head seek and rebuilds failed drives via RAID-5 XOR.",
+        how: "Cuts disk seek cylinders using SSTF and mathematically reconstructs failed Disk 1 data from parity.",
+        type: "raid"
+      },
+      block_alloc: {
+        short: "Manages a 32-sector disk bitmap across Contiguous, Linked & Indexed layouts.",
+        how: "Tracks free, allocated, and damaged disk blocks in real time across three file allocation strategies.",
+        type: "sectors"
+      },
+      acid_tx: {
+        short: "Rolls back invalid firewall rules to SAVEPOINT under WAL isolation.",
+        how: "Demonstrates partial transaction rollback without losing valid rules already staged in the same transaction.",
+        type: "nodes",
+        nodes: ["BEGIN TX", "Insert Valid Rule", "SAVEPOINT Rollback", "COMMIT Clean"]
+      },
+      aries_crash: {
+        short: "Recovers from mid-transaction power loss via ARIES Redo/Undo.",
+        how: "Replays committed transactions forward (REDO) and rolls back incomplete crash transactions (UNDO) using WAL LSNs.",
+        type: "nodes",
+        nodes: ["1. Analysis", "2. REDO Winner", "3. UNDO Loser", "DB Consistent"]
+      }
+    };
 
-    new Chart(document.getElementById('chartLatency'), {
-      type: 'bar',
-      data: {
-        labels: ['Full Table Scan', 'Indexed Lookup'],
-        datasets: [{ data: [42.1, 1.8], backgroundColor: ['#ef4444', '#10b981'] }]
-      },
-      options: { plugins: { legend: { display: false } } }
-    });
+    let activeTab = 0;
+    let currentMemberCache = null;
+    let currentMemberId = 1;
+
+    function switchTab(idx, btnEl) {
+      activeTab = idx;
+      if (btnEl) {
+        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+        btnEl.classList.add("active");
+      }
+      if (autoStreamTimer && idx !== 0) { clearInterval(autoStreamTimer); autoStreamTimer = null; }
+      if (idx === 0) renderPipeline("get");
+      else renderMemberOverview(idx);
+    }
+
+    let autoStreamTimer = null;
+    let autoStepCount = 0;
+
+    function toggleAutoStream() {
+      if (autoStreamTimer) {
+        clearInterval(autoStreamTimer);
+        autoStreamTimer = null;
+        renderPipeline("get");
+      } else {
+        autoStepCount = 0;
+        renderPipeline("burst");
+        autoStreamTimer = setInterval(() => {
+          if (activeTab !== 0) {
+            clearInterval(autoStreamTimer);
+            autoStreamTimer = null;
+            return;
+          }
+          autoStepCount++;
+          // Alternate between mixed packet bursts and targeted attack waves
+          const nextMode = (autoStepCount % 3 === 0) ? "attack" : "burst";
+          renderPipeline(nextMode);
+        }, 2800);
+      }
+    }
+
+    let latestPackets = [];
+    let latestQuarantine = [];
 
     setInterval(() => {
-      fetch('/api/stats').then(r => r.json()).then(data => {
-        document.getElementById('stat-packets').innerText = data.total_packets;
-        document.getElementById('stat-threats').innerText = data.total_threats;
-        document.getElementById('stat-blocked').innerText = data.blocked_ips_count;
+      const cpuEl = document.getElementById("tk-cpu");
+      if (cpuEl) {
+        const load = (14.2 + Math.random() * 16.5).toFixed(1);
+        cpuEl.textContent = load + "%";
+      }
+    }, 2400);
 
-        const pbody = document.getElementById('packet-tbody');
-        pbody.innerHTML = data.packets.map(p => `
-          <tr>
-            <td class="py-2 text-slate-400">${p.packet_id}</td>
-            <td class="font-mono text-cyan-400">${p.src_ip}</td>
-            <td class="font-mono text-slate-400">${p.dst_ip}</td>
-            <td>${p.dst_port}</td>
-            <td><span class="px-1.5 py-0.5 rounded text-[10px] ${p.protocol==='TCP'?'bg-blue-500/20 text-blue-400':'bg-purple-500/20 text-purple-400'}">${p.protocol}</span></td>
-            <td>${p.packet_size}B</td>
-            <td>${p.is_malformed ? '<span class="text-rose-400 font-bold">ATTACK</span>' : '<span class="text-emerald-400">CLEAN</span>'}</td>
-          </tr>
-        `).join('');
+    function openInspector(type, idx) {
+      const item = type === "packet" ? latestPackets[idx] : latestQuarantine[idx];
+      if (!item) return;
 
-        const bbody = document.getElementById('blocked-tbody');
-        bbody.innerHTML = data.blocked_ips.map(b => `
-          <tr>
-            <td class="py-2 text-rose-400 font-mono">${b.ip_address}</td>
-            <td class="text-amber-400 font-bold">${b.malformed_count}</td>
-            <td><span class="bg-red-500/20 text-red-400 px-2 py-0.5 rounded text-[10px]">BLOCKED</span></td>
-          </tr>
-        `).join('');
+      const isThreat = type === "threat" || item.status === "QUARANTINED";
+      const badge = document.getElementById("insp-badge");
+      badge.textContent = isThreat ? "QUARANTINED THREAT" : "CLEAN PACKET";
+      badge.style.background = isThreat ? "var(--red-soft)" : "var(--green-soft)";
+      badge.style.color = isThreat ? "var(--red)" : "var(--green)";
 
-        const alerts = document.getElementById('threat-alerts');
-        alerts.innerHTML = data.threats.map(t => `
-          <div class="bg-rose-500/10 border border-rose-500/20 p-2 rounded text-rose-400">
-            <strong>${t.attacker_ip}</strong>: ${t.reason}
+      document.getElementById("insp-title").textContent = `${item.src_ip}:${item.dst_port}`;
+
+      const hexDump = isThreat
+        ? `0000: 45 00 05 dc 8a 1f 40 00  38 06 a2 c1 c0 a8 01 0a  E.....@.8.......\n0010: 53 45 4c 45 43 54 20 2a  20 46 52 4f 4d 20 75 73  SELECT * FROM us\n0020: 65 72 73 20 57 48 45 52  45 20 27 31 27 3d 27 31  ers WHERE '1'='1`
+        : `0000: 45 00 02 80 3c 11 40 00  40 06 7b 9e 0a 18 09 0f  E...<.@.@.{.....\n0010: 16 03 03 00 f8 01 00 00  f4 03 03 54 4c 53 31 33  ...........TLS13\n0020: 4f 4b 5f 48 41 4e 44 53  48 41 4b 45 5f 56 45 52  OK_HANDSHAKE_VER`;
+
+      const sqlTrace = isThreat
+        ? `BEGIN IMMEDIATE;\nINSERT INTO live_packets (src_ip, is_threat, score) VALUES ('${item.src_ip}', 1, ${item.score || 92});\n-- TRIGGER trg_auto_quarantine FIRED:\nINSERT INTO quarantine_threats (src_ip, reason) VALUES ('${item.src_ip}', '${item.reason || "High-Risk Signature"}');\nCOMMIT; -- WAL Synced`
+        : `BEGIN IMMEDIATE;\nINSERT INTO live_packets (src_ip, is_threat, status) VALUES ('${item.src_ip}', 0, 'CLEAN');\n-- Risk Score < 80: Forwarded to Normal Stream\nCOMMIT; -- WAL Synced`;
+
+      document.getElementById("insp-content").innerHTML = `
+        <div class="metrics-list">
+          <div class="m-tile"><div class="k">Protocol</div><div class="v">${item.protocol || "TCP/IP"}</div></div>
+          <div class="m-tile"><div class="k">OS Worker</div><div class="v">${item.worker || "Worker-T0"}</div></div>
+          <div class="m-tile"><div class="k">MLFQ Queue</div><div class="v">${item.queue || "Q0-Realtime"}</div></div>
+          <div class="m-tile"><div class="k">Threat Score</div><div class="v" style="color:${isThreat ? 'var(--red)' : 'var(--green)'};">${item.score || 10} / 100</div></div>
+        </div>
+
+        <div class="explain-box">
+          <h4>Verdict &amp; Rule Evaluation</h4>
+          <p>${isThreat ? (item.reason || "Blocked by SentinelNet automated threat trigger.") : "Passed all signature, payload size, and port threshold checks."}</p>
+        </div>
+
+        <div>
+          <div class="stage-title" style="margin-bottom:0.45rem;">Captured Frame Hex / ASCII Dump</div>
+          <pre class="hex-box">${hexDump}</pre>
+        </div>
+
+        <div>
+          <div class="stage-title" style="margin-bottom:0.45rem;">DBMS Transaction &amp; Trigger Trace</div>
+          <pre class="hex-box" style="color:#a7f3d0;">${sqlTrace}</pre>
+        </div>
+      `;
+
+      document.getElementById("packet-drawer").classList.add("open");
+    }
+
+    function closeInspector() {
+      document.getElementById("packet-drawer").classList.remove("open");
+    }
+
+    async function renderPipeline(mode) {
+      const root = document.getElementById("app-root");
+      const opts = mode === "get"
+        ? { method: "GET" }
+        : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode }) };
+      const res = await fetch("/api/pipeline", opts);
+      const data = await res.json();
+      const s = data.summary;
+      latestPackets = data.packets || [];
+      latestQuarantine = data.quarantine_table || [];
+      const ringEl = document.getElementById('tk-ring');
+      if (ringEl && s.ring_buffer_utilization) ringEl.textContent = s.ring_buffer_utilization;
+
+      const total = Math.max(s.total_captured, 1);
+      const cleanPct = Math.round((s.clean_forwarded / total) * 100);
+      const threatPct = Math.round((s.quarantined_threats / total) * 100);
+
+      root.innerHTML = `
+        <div class="top-bar">
+          <h2>Live Packet Capture &amp; Threat Quarantine</h2>
+          <div style="display:flex; gap:0.65rem; flex-wrap:wrap;">
+            <button class="btn-action" style="background:${autoStreamTimer ? 'linear-gradient(135deg, #16a34a, #059669)' : 'linear-gradient(135deg, #0f172a, #334155)'};" onclick="toggleAutoStream()">
+              ${autoStreamTimer ? '⏸ Stop Auto-Stream (Live)' : '▶ Auto-Stream Traffic'}
+            </button>
+            <button class="btn-action" style="background:var(--m1-grad);" onclick="renderPipeline('burst')">+ Packet Burst</button>
+            <button class="btn-action" style="background:linear-gradient(135deg, #dc2626, #f97316);" onclick="renderPipeline('attack')">⚡ Attack Wave</button>
+            <button class="tab-btn" onclick="if(autoStreamTimer){clearInterval(autoStreamTimer);autoStreamTimer=null;} renderPipeline('reset')">Reset</button>
           </div>
-        `).join('');
+        </div>
+
+        <!-- Live 3D Packet Routing Movie Stage -->
+        <div class="movie-stage">
+          <div class="movie-hud">
+            <span style="color:#38bdf8;">● LIVE KERNEL &amp; DBMS PACKET FLOW</span>
+            <span style="color:#94a3b8;">SAFE PACKETS PASS ➔ &nbsp;|&nbsp; THREATS TRAPPED IN QUARANTINE ⬇</span>
+          </div>
+          <div class="movie-track-wrap" id="movie-track">
+            <!-- Glowing Guide Paths -->
+            <svg viewBox="0 0 1000 195" style="position:absolute; inset:0; width:100%; height:100%; z-index:1;">
+              <path d="M 180 94 L 385 94" stroke="rgba(56,189,248,0.45)" stroke-width="4" stroke-dasharray="8 6" fill="none"/>
+              <path d="M 565 82 Q 680 38 815 38" stroke="rgba(74,222,128,0.45)" stroke-width="4" stroke-dasharray="8 6" fill="none"/>
+              <path d="M 565 106 Q 680 152 815 152" stroke="rgba(248,113,113,0.5)" stroke-width="4" stroke-dasharray="8 6" fill="none"/>
+            </svg>
+
+            <!-- 4 Core 3D Stations -->
+            <div class="stage-node node-capture">
+              <div style="font-size:0.65rem; opacity:0.85;">OS RING BUFFER</div>
+              <div style="font-size:0.95rem; margin-top:2px;">Packet Capture</div>
+            </div>
+
+            <div class="stage-node node-scanner">
+              <div style="font-size:0.65rem; color:#e9d5ff;">OS WORKERS + DBMS</div>
+              <div style="font-size:0.98rem; margin-top:2px;">Threat Inspection</div>
+              <div style="font-size:0.66rem; margin-top:3px; color:#38bdf8;">Trigger Guard Active</div>
+            </div>
+
+            <div class="stage-node node-clean">
+              <div style="font-size:0.65rem; opacity:0.85;">VERIFIED SAFE</div>
+              <div style="font-size:0.95rem; margin-top:2px;">Passed (${s.clean_forwarded})</div>
+            </div>
+
+            <div class="stage-node node-trap">
+              <div style="font-size:0.65rem; color:#fecaca;">QUARANTINE CAGE</div>
+              <div style="font-size:0.95rem; margin-top:2px;">Trapped (${s.quarantined_threats})</div>
+            </div>
+
+            <!-- Continuous Animated 3D Packets -->
+            <div class="pkt-cube pkt-safe" style="animation-delay: 0s;">OK</div>
+            <div class="pkt-cube pkt-threat" style="animation-delay: 1.1s;">SYN!</div>
+            <div class="pkt-cube pkt-safe" style="animation-delay: 2.2s;">TLS</div>
+            <div class="pkt-cube pkt-threat" style="animation-delay: 3.3s;">SQLi!</div>
+          </div>
+        </div>
+
+        <!-- Interactive 4-Member Architecture Quick-Jump Bar -->
+        <div class="team-strip">
+          <div class="team-chip" style="border-left:5px solid var(--m1);" onclick="document.querySelectorAll('.tab-btn')[2].click()">
+            <div><div style="font-size:0.7rem; font-weight:800; color:var(--m1);">1. PRIYANSHU</div><div style="font-size:0.84rem; font-weight:900;">Syscalls, Sync &amp; MVCC</div></div>
+            <span>➔</span>
+          </div>
+          <div class="team-chip" style="border-left:5px solid var(--m2);" onclick="document.querySelectorAll('.tab-btn')[3].click()">
+            <div><div style="font-size:0.7rem; font-weight:800; color:var(--m2);">2. ANJALI</div><div style="font-size:0.84rem; font-weight:900;">Threads, MLFQ &amp; Optimizer</div></div>
+            <span>➔</span>
+          </div>
+          <div class="team-chip" style="border-left:5px solid var(--m3);" onclick="document.querySelectorAll('.tab-btn')[4].click()">
+            <div><div style="font-size:0.7rem; font-weight:800; color:var(--m3);">3. AANYA</div><div style="font-size:0.84rem; font-weight:900;">Thrashing, B-Tree &amp; Backup</div></div>
+            <span>➔</span>
+          </div>
+          <div class="team-chip" style="border-left:5px solid var(--m4);" onclick="document.querySelectorAll('.tab-btn')[5].click()">
+            <div><div style="font-size:0.7rem; font-weight:800; color:var(--m4);">4. DRISHTI</div><div style="font-size:0.84rem; font-weight:900;">Deadlocks, RAID &amp; ACID</div></div>
+            <span>➔</span>
+          </div>
+        </div>
+
+        <!-- 3D KPI Metric Cards -->
+        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:1.4rem; margin-bottom:1.75rem;">
+          <div class="panel-card" style="border-top:6px solid var(--m1);">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <div style="font-size:2.2rem; font-weight:900;">${s.total_captured}</div>
+                <div style="font-size:0.76rem; color:var(--muted); font-weight:800;">TOTAL PACKETS CAPTURED</div>
+              </div>
+              <span class="pill" style="background:var(--m1-soft); color:var(--m1);">RING BUFFER</span>
+            </div>
+          </div>
+
+          <div class="panel-card" style="border-top:6px solid var(--green);">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <div style="font-size:2.2rem; font-weight:900; color:var(--green);">${s.clean_forwarded}</div>
+                <div style="font-size:0.76rem; color:var(--muted); font-weight:800;">CLEAN TRAFFIC FORWARDED</div>
+              </div>
+              <span class="pill" style="background:var(--green-soft); color:var(--green);">${cleanPct}% SAFE</span>
+            </div>
+          </div>
+
+          <div class="panel-card" style="border-top:6px solid var(--red);">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <div style="font-size:2.2rem; font-weight:900; color:var(--red);">${s.quarantined_threats}</div>
+                <div style="font-size:0.76rem; color:var(--muted); font-weight:800;">ISOLATED IN QUARANTINE</div>
+              </div>
+              <span class="pill" style="background:var(--red-soft); color:var(--red);">${threatPct}% BLOCKED</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Side-by-Side OS Packet Stream & DBMS Quarantine Table -->
+        <div class="pipe-grid">
+          <div class="panel-card" style="border-top:6px solid var(--m1);">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <h3>1. Captured Packet Stream</h3>
+              <span class="pill" style="background:var(--m1-soft); color:var(--m1);">OS WORKERS &amp; MLFQ</span>
+            </div>
+            <table>
+              <thead><tr><th>Source IP</th><th>Protocol</th><th>OS Worker</th><th>Verdict</th></tr></thead>
+              <tbody>
+                ${data.packets.map((p, idx) => `
+                  <tr onclick="openInspector('packet', ${idx})" title="Click to inspect packet">
+                    <td><strong>${p.src_ip}</strong>:${p.dst_port}</td>
+                    <td>${p.protocol} <span style="color:var(--muted);">(${p.bytes}B)</span></td>
+                    <td><strong>${p.worker}</strong><br><span style="font-size:0.74rem; color:var(--muted);">${p.queue}</span></td>
+                    <td><span class="pill" style="background:${p.status==='QUARANTINED'?'var(--red-soft)':'var(--green-soft)'}; color:${p.status==='QUARANTINED'?'var(--red)':'var(--green)'};">${p.status}</span></td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="panel-card" style="border-top:6px solid var(--red);">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <h3 style="color:var(--red);">2. Quarantine Threats Table</h3>
+              <span class="pill" style="background:var(--red-soft); color:var(--red);">DBMS TRIGGER ISOLATION</span>
+            </div>
+            <table>
+              <thead><tr><th>Blocked IP</th><th>Risk</th><th>Why It Was Quarantined</th></tr></thead>
+              <tbody>
+                ${data.quarantine_table.map((t, idx) => `
+                  <tr onclick="openInspector('threat', ${idx})" title="Click to inspect quarantined threat">
+                    <td><strong style="color:var(--red);">${t.src_ip}</strong>:${t.dst_port}<br><span style="font-size:0.74rem; color:var(--muted);">${t.time}</span></td>
+                    <td><span class="pill" style="background:var(--red-soft); color:var(--red);">${t.score}/100</span></td>
+                    <td><strong>${t.reason}</strong></td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    async function renderMemberOverview(mid) {
+      currentMemberId = mid;
+      const root = document.getElementById("app-root");
+      const theme = MEMBER_THEMES[mid];
+      root.innerHTML = `<p style="font-weight:800; color:${theme.color};">Loading modules...</p>`;
+
+      const res = await fetch(`/api/member/${mid}`);
+      const payload = await res.json();
+      currentMemberCache = payload;
+
+      root.innerHTML = `
+        <div class="top-bar">
+          <h2>${payload.member}</h2>
+        </div>
+
+        <div class="cards-grid">
+          ${payload.modules.map((m, idx) => {
+            const meta = MODULE_DETAILS[m.id] || { short: m.desc };
+            const isDb = m.perspective.startsWith("DBMS");
+            return `
+              <div class="outer-card" onclick="openStudio(${idx})">
+                <div class="card-ribbon" style="background:${theme.grad};"></div>
+                <div class="outer-body">
+                  <div>
+                    <div class="outer-top">
+                      <div class="outer-title">${m.title}</div>
+                      <span class="pill" style="background:${isDb ? 'var(--m3-soft)' : theme.soft}; color:${isDb ? 'var(--m3)' : theme.color};">
+                        ${isDb ? 'DBMS' : 'OS'}
+                      </span>
+                    </div>
+                    <p class="outer-desc" style="margin-top:0.55rem;">${meta.short}</p>
+                  </div>
+                  <div class="card-diagram">
+                    ${getCardDiagramSVG(m.id, theme.color)}
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      `;
+    }
+
+    function build3DVisual(modId, liveData, theme, jitter) {
+      const meta = MODULE_DETAILS[modId] || { type: "nodes", nodes: ["Input", "Process", "Verified"] };
+
+      if (meta.type === "pillars") {
+        let bars = meta.bars.map(b => ({ ...b }));
+        if (modId === "index_nosql" && liveData?.before_index && liveData?.after_composite_index) {
+          bars[0].val = Math.min(96, Math.max(45, Math.round(liveData.before_index.avg_query_ms * 100)));
+          bars[1].val = Math.max(10, Math.round(liveData.after_composite_index.avg_query_ms * 100));
+        }
+        return `
+          <div class="stage-3d">
+            <div class="stage-title">3D Dynamic Rise &amp; Fall Comparison</div>
+            <div class="pillars-arena">
+              ${bars.map((b, i) => {
+                const delta = jitter ? ((i % 2 === 0 ? 1 : -1) * Math.floor(Math.random() * 14)) : 0;
+                const h = Math.min(98, Math.max(14, b.val + delta));
+                return `
+                  <div class="pillar-col">
+                    <div class="pillar-val">${h} ${b.unit}</div>
+                    <div class="pillar-3d" style="height:${h}%; background:${b.color};"></div>
+                    <div class="pillar-lbl">${b.label}</div>
+                  </div>
+                `;
+              }).join("")}
+            </div>
+          </div>
+        `;
+      }
+
+      if (meta.type === "ring") {
+        const pct = jitter ? Math.min(99, Math.max(84, meta.pct + (Math.random() > 0.5 ? 3 : -3))) : meta.pct;
+        return `
+          <div class="stage-3d">
+            <div class="stage-title">3D Hardware Cache Hit Gauge</div>
+            <div class="ring-wrap">
+              <div class="ring-3d" style="background: conic-gradient(${theme.color} 0% ${pct}%, #cbd5e1 ${pct}% 100%);">
+                <div class="ring-hole">
+                  <div style="font-size:1.85rem; font-weight:900; color:${theme.color};">${pct}%</div>
+                  <div style="font-size:0.68rem; font-weight:800; color:var(--muted);">${meta.ringLabel}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      if (meta.type === "raid") {
+        const ds = liveData?.disk_scheduling || { fcfs_seek_cylinders: 640, sstf_seek_cylinders: 236 };
+        const fcfsH = jitter ? 88 + Math.floor(Math.random() * 10) : 92;
+        const sstfH = jitter ? 30 + Math.floor(Math.random() * 8) : 34;
+        return `
+          <div class="stage-3d">
+            <div class="stage-title">3D Seek Pillars &amp; RAID-5 Drive Array</div>
+            <div class="pillars-arena" style="height:145px;">
+              <div class="pillar-col">
+                <div class="pillar-val">${ds.fcfs_seek_cylinders} cyl</div>
+                <div class="pillar-3d" style="height:${fcfsH}%; background:linear-gradient(180deg, #fb923c, #ea580c);"></div>
+                <div class="pillar-lbl">FCFS Seek</div>
+              </div>
+              <div class="pillar-col">
+                <div class="pillar-val">${ds.sstf_seek_cylinders} cyl</div>
+                <div class="pillar-3d" style="height:${sstfH}%; background:linear-gradient(180deg, #22c55e, #16a34a);"></div>
+                <div class="pillar-lbl">SSTF Optimal</div>
+              </div>
+            </div>
+            <div class="drive-bay">
+              <div class="drive-3d">DISK 0<br><span style="font-size:0.68rem; color:var(--muted);">ONLINE</span></div>
+              <div class="drive-3d rebuilt">DISK 1<br><span style="font-size:0.68rem;">REBUILT</span></div>
+              <div class="drive-3d">DISK 2<br><span style="font-size:0.68rem; color:var(--muted);">ONLINE</span></div>
+              <div class="drive-3d">PARITY<br><span style="font-size:0.68rem; color:var(--m4);">XOR OK</span></div>
+            </div>
+          </div>
+        `;
+      }
+
+      if (meta.type === "sectors") {
+        const bad1 = jitter ? Math.floor(Math.random() * 10) + 2 : 5;
+        const bad2 = jitter ? Math.floor(Math.random() * 10) + 15 : 19;
+        const split1 = jitter ? Math.floor(Math.random() * 5) + 9 : 12;
+        const split2 = jitter ? Math.floor(Math.random() * 5) + 20 : 22;
+        const cubes = Array.from({ length: 32 }, (_, i) => {
+          if (i === bad1 || i === bad2) return `<div class="sector-cube" style="background:#ef4444;" title="Bad Sector">X</div>`;
+          if (i < split1) return `<div class="sector-cube" style="background:#0284c7;">C${i}</div>`;
+          if (i < split2) return `<div class="sector-cube" style="background:#16a34a;">L${i}</div>`;
+          return `<div class="sector-cube" style="background:#cbd5e1; color:#334155;">${i}</div>`;
+        }).join("");
+        return `
+          <div class="stage-3d">
+            <div class="stage-title">3D 32-Block Disk Bitmap (Blue: Contiguous · Green: Linked · Red: Bad)</div>
+            <div class="sector-grid">${cubes}</div>
+          </div>
+        `;
+      }
+
+      const runId = Math.floor(100 + Math.random() * 900);
+      const latMs = (0.18 + Math.random() * 1.45).toFixed(2);
+      return `
+        <div class="stage-3d">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="stage-title">3D Execution Stage Flow</div>
+            <span class="pill" style="background:#dcfce7; color:#15803d;">RUN #${runId} · ${latMs} ms</span>
+          </div>
+          <div class="hex-flow">
+            ${meta.nodes.map((n, idx) => `
+              <div class="hex-node" style="border-bottom-color:${idx === meta.nodes.length - 1 ? '#16a34a' : theme.color};">
+                ${n}
+              </div>
+              ${idx < meta.nodes.length - 1 ? '<span style="font-weight:900; color:#94a3b8;">➔</span>' : ''}
+            `).join("")}
+          </div>
+        </div>
+      `;
+    }
+
+    let currentModIndex = 0;
+
+    function toggleDarkSOC() {
+      const isDark = document.body.classList.toggle("dark-soc");
+      const btn = document.getElementById("theme-toggle");
+      if (btn) btn.textContent = isDark ? "☀️ Light Studio" : "🌙 Cyber SOC";
+    }
+
+    document.addEventListener("keydown", (e) => {
+      const modalOpen = document.getElementById("studio-modal").classList.contains("open");
+      if (!modalOpen || !currentMemberCache) return;
+      const total = currentMemberCache.modules.length;
+      if (e.key === "ArrowRight") openStudio((currentModIndex + 1) % total);
+      if (e.key === "ArrowLeft") openStudio((currentModIndex - 1 + total) % total);
+      if (e.key === "Escape") closeStudio();
+    });
+
+    function openStudio(modIndex, jitter = false) {
+      currentModIndex = modIndex;
+      if (!currentMemberCache) return;
+      const m = currentMemberCache.modules[modIndex];
+      const theme = MEMBER_THEMES[currentMemberId];
+      const meta = MODULE_DETAILS[m.id] || { how: m.desc };
+      const isDb = m.perspective.startsWith("DBMS");
+
+      document.getElementById("st-badge").textContent = isDb ? "DBMS ENGINE" : "OS ENGINE";
+      document.getElementById("st-badge").style.background = isDb ? "var(--m3-soft)" : theme.soft;
+      document.getElementById("st-badge").style.color = isDb ? "var(--m3)" : theme.color;
+      document.getElementById("st-title").textContent = m.title;
+
+      const totalMods = currentMemberCache.modules.length;
+      document.getElementById("st-prev").onclick = () => openStudio((modIndex - 1 + totalMods) % totalMods);
+      document.getElementById("st-next").onclick = () => openStudio((modIndex + 1) % totalMods);
+
+      const rerunBtn = document.getElementById("st-rerun");
+      rerunBtn.style.background = theme.grad;
+      rerunBtn.onclick = async () => {
+        const res = await fetch(`/api/member/${currentMemberId}`);
+        currentMemberCache = await res.json();
+        openStudio(modIndex, true);
+      };
+
+      const cleanMetrics = Object.entries(m.data || {})
+        .filter(([k]) => !k.startsWith("_"))
+        .slice(0, 4)
+        .map(([k, v]) => {
+          let val = typeof v === "object" ? Object.values(v)[0] : v;
+          if (typeof val === "boolean") val = val ? "VERIFIED" : "ACTIVE";
+          return `
+            <div class="m-tile">
+              <div class="k">${k.replace(/_/g, " ")}</div>
+              <div class="v">${val}</div>
+            </div>
+          `;
+        }).join("");
+
+      document.getElementById("st-body").innerHTML = `
+        ${build3DVisual(m.id, m.data, theme, jitter)}
+        <div class="info-panel">
+          <div class="explain-box">
+            <h4>How This Module Works</h4>
+            <p>${meta.how}</p>
+          </div>
+          <div>
+            <div class="stage-title" style="margin-bottom:0.6rem;">Live Execution Telemetry</div>
+            <div class="metrics-list">${cleanMetrics}</div>
+          </div>
+        </div>
+      `;
+
+      document.getElementById("studio-modal").classList.add("open");
+    }
+
+    function closeStudio() {
+      document.getElementById("studio-modal").classList.remove("open");
+    }
+
+    renderPipeline("get");
+  
+    
+    /* Interactive DBMS 3D Simulators */
+    async function loadDbmsMvcc(mode = "PREPARED", targetId = "dbms-inline-box") {
+      const box = document.getElementById(targetId);
+      if (!box) return;
+      const res = await fetch(`/api/dbms/mvcc_sqli?mode=${mode}`);
+      const d = await res.json();
+      const badgeBg = d.blocked ? "#dcfce7" : "#fee2e2";
+      const badgeColor = d.blocked ? "#15803d" : "#b91c1c";
+
+      const isRaw = d.mode === "RAW_SQLI";
+      const isMvcc = d.mode === "MVCC_CONFLICT";
+
+      box.innerHTML = `
+        <div class="stage-title">🗄️ DBMS Engine: 3D SQLi Shield &amp; MVCC Concurrency</div>
+        <div class="p2-toolbar">
+          ${[
+            ["PREPARED", "Parameterized Bind"],
+            ["RAW_SQLI", "Simulate SQLi Attack"],
+            ["MVCC_CONFLICT", "MVCC Timestamp Conflict"]
+          ].map(([k, lbl]) => `
+            <button class="p2-chip ${k === d.mode ? 'active' : ''}" onclick="loadDbmsMvcc('${k}', '${targetId}')">${lbl}</button>
+          `).join("")}
+          <span class="pill" style="margin-left:auto; background:${badgeBg}; color:${badgeColor};">${d.mvcc_status}</span>
+        </div>
+        <div class="dbms-3d-arena">
+          <div class="dbms-3d-row">
+            <div class="dbms-cube ${isRaw ? 'danger' : 'amber'}" style="animation-delay:0s;">
+              <div style="font-size:0.7rem; color:#94a3b8; font-weight:800;">INCOMING STREAM</div>
+              <div style="font-size:1rem; font-weight:900; margin-top:2px;">${isRaw ? '⚠️ SQLi Payload' : (isMvcc ? '⏱️ T2 Stale Write' : '🔒 Bound Host Var')}</div>
+            </div>
+            <div class="dbms-arrow">➔</div>
+            <div class="dbms-cube ${isRaw ? 'danger' : 'success'}" style="animation-delay:0.4s;">
+              <div style="font-size:0.7rem; color:#94a3b8; font-weight:800;">${isMvcc ? 'MVCC SCHEDULER' : 'C-SQL FIREWALL'}</div>
+              <div style="font-size:1rem; font-weight:900; margin-top:2px;">${isRaw ? '❌ Bypassed' : (isMvcc ? '🛡️ T2 Aborted' : '🛡️ Parameterized')}</div>
+            </div>
+            <div class="dbms-arrow">➔</div>
+            <div class="dbms-cube ${isRaw ? 'danger' : 'success'}" style="animation-delay:0.8s;">
+              <div style="font-size:0.7rem; color:#94a3b8; font-weight:800;">SQLITE VAULT</div>
+              <div style="font-size:1rem; font-weight:900; margin-top:2px;">${isRaw ? '14,820 Leaked' : '0 Rows Leaked'}</div>
+            </div>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-top:1rem; padding-top:0.7rem; border-top:1px solid rgba(148,163,184,0.18); font-size:0.82rem; color:#cbd5e1; font-weight:800;">
+            <span>Execution Latency: <strong style="color:#38bdf8;">${d.latency_ms} ms</strong></span>
+            <span>Isolation Level: <strong style="color:#34d399;">SERIALIZABLE SNAPSHOT</strong></span>
+          </div>
+        </div>
+      `;
+    }
+
+    async function loadDbmsOptimizer(plan = "BTREE_INDEX", targetId = "dbms-inline-box") {
+      const box = document.getElementById(targetId);
+      if (!box) return;
+      const res = await fetch(`/api/dbms/query_plan?plan=${plan}`);
+      const d = await res.json();
+      const isScan = d.plan === "FULL_SCAN";
+      const isCover = d.plan === "COVERING_INDEX";
+      const speedup = isScan ? "1.0x (Baseline)" : (isCover ? "246x Faster" : "73x Faster");
+
+      box.innerHTML = `
+        <div class="stage-title">🗄️ DBMS Engine: 3D B-Tree Index Traversal &amp; Cost Model</div>
+        <div class="p2-toolbar">
+          ${[
+            ["FULL_SCAN", "Full Table Scan"],
+            ["BTREE_INDEX", "Composite B-Tree"],
+            ["COVERING_INDEX", "Covering Index-Only"]
+          ].map(([k, lbl]) => `
+            <button class="p2-chip ${k === d.plan ? 'active' : ''}" onclick="loadDbmsOptimizer('${k}', '${targetId}')">${lbl}</button>
+          `).join("")}
+          <span class="pill" style="margin-left:auto; background:${isScan ? '#fee2e2' : '#dcfce7'}; color:${isScan ? '#b91c1c' : '#15803d'};">${d.exec_ms} ms · ${speedup}</span>
+        </div>
+        <div class="dbms-3d-arena">
+          <div class="btree-level">
+            <div class="btree-node ${!isScan ? 'lit' : 'scan-hit'}">ROOT PAGE [Port 1 .. 65535]</div>
+          </div>
+          <div class="btree-level">
+            <div class="btree-node ${isScan ? 'scan-hit' : ''}">[1 - 442]</div>
+            <div class="btree-node ${!isScan ? 'lit' : 'scan-hit'}">[443 - 1024]</div>
+            <div class="btree-node ${isScan ? 'scan-hit' : ''}">[1025 - 65535]</div>
+          </div>
+          <div class="btree-level" style="margin-bottom:0.85rem;">
+            <div class="btree-node ${isScan ? 'scan-hit' : ''}">Leaf #1</div>
+            <div class="btree-node ${!isScan ? 'lit' : 'scan-hit'}">Leaf #2 (Port 443 Hit)</div>
+            <div class="btree-node ${isScan ? 'scan-hit' : ''}">Leaf #3</div>
+            <div class="btree-node ${isScan ? 'scan-hit' : ''}">Leaf #4</div>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:0.75rem; text-align:center;">
+            <div class="dbms-cube ${isScan ? 'danger' : 'success'}" style="min-width:0; padding:0.6rem; animation:none;">
+              <div style="font-size:0.68rem; color:#94a3b8;">ROWS SCANNED</div>
+              <div style="font-size:1.05rem; font-weight:900;">${d.rows_scanned.toLocaleString()}</div>
+            </div>
+            <div class="dbms-cube ${isScan ? 'danger' : 'success'}" style="min-width:0; padding:0.6rem; animation:none;">
+              <div style="font-size:0.68rem; color:#94a3b8;">DISK I/O PAGES</div>
+              <div style="font-size:1.05rem; font-weight:900;">${d.io_pages}</div>
+            </div>
+            <div class="dbms-cube ${isScan ? 'amber' : 'success'}" style="min-width:0; padding:0.6rem; animation:none;">
+              <div style="font-size:0.68rem; color:#94a3b8;">TABLE FETCH</div>
+              <div style="font-size:1.05rem; font-weight:900;">${isCover ? 'Bypassed (0)' : (isScan ? '100k Heap' : '42 Lookups')}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function loadDbmsWal(phase = "REDO", targetId = "dbms-inline-box") {
+      const box = document.getElementById(targetId);
+      if (!box) return;
+      const res = await fetch(`/api/dbms/wal_recovery?phase=${phase}`);
+      const d = await res.json();
+      const dirtyCount = d.dirty_pages;
+
+      box.innerHTML = `
+        <div class="stage-title">🗄️ DBMS Engine: 3D ARIES WAL Buffer &amp; Recovery Stage</div>
+        <div class="p2-toolbar">
+          ${["CRASH", "ANALYSIS", "REDO", "UNDO"].map(p => `
+            <button class="p2-chip ${p === d.phase ? 'active' : ''}" onclick="loadDbmsWal('${p}', '${targetId}')">${p}</button>
+          `).join("")}
+          <span class="pill" style="margin-left:auto; background:#f3e8ff; color:#6d28d9;">${d.status}</span>
+        </div>
+        <div class="dbms-3d-arena">
+          <div class="dbms-3d-row">
+            <div class="dbms-cube amber" style="min-width:105px; padding:0.65rem;">
+              <div style="font-size:0.66rem; color:#94a3b8;">WAL JOURNAL</div>
+              <div style="font-size:0.95rem; font-weight:900;">${d.lsn}</div>
+            </div>
+            <div class="dbms-arrow">➔</div>
+            <div class="dbms-cube ${dirtyCount > 0 ? 'danger' : 'success'}" style="min-width:105px; padding:0.65rem;">
+              <div style="font-size:0.66rem; color:#94a3b8;">BUFFER POOL</div>
+              <div style="font-size:0.95rem; font-weight:900;">${dirtyCount} Dirty Pages</div>
+            </div>
+            <div class="dbms-arrow">➔</div>
+            <div class="dbms-cube ${d.uncommitted === 0 ? 'success' : 'amber'}" style="min-width:105px; padding:0.65rem;">
+              <div style="font-size:0.66rem; color:#94a3b8;">ACID STATE</div>
+              <div style="font-size:0.95rem; font-weight:900;">${d.uncommitted === 0 ? '100% Clean' : d.uncommitted + ' Active'}</div>
+            </div>
+          </div>
+          <div class="wal-page-grid">
+            ${[1,2,3,4,5,6].map(idx => {
+              const isDirty = idx <= dirtyCount;
+              return `<div class="wal-page-tile" style="background:${isDirty ? '#dc2626' : '#059669'};">PG #${idx}<br><span style="font-size:0.62rem;">${isDirty ? 'DIRTY' : 'SYNCED'}</span></div>`;
+            }).join("")}
+          </div>
+        </div>
+      `;
+    }
+
+    async function loadDbmsAcid(action = "QUARANTINE_TRIGGER", targetId = "dbms-inline-box") {
+      const box = document.getElementById(targetId);
+      if (!box) return;
+      const res = await fetch(`/api/dbms/acid_trigger?action=${action}`);
+      const d = await res.json();
+      const isRollback = d.action === "ROLLBACK_TEST";
+
+      box.innerHTML = `
+        <div class="stage-title">🗄️ DBMS Engine: 3D Atomic Trigger Router &amp; Rollback Guard</div>
+        <div class="p2-toolbar">
+          ${[
+            ["QUARANTINE_TRIGGER", "Fire Quarantine Trigger"],
+            ["ROLLBACK_TEST", "Force Constraint Rollback"]
+          ].map(([k, lbl]) => `
+            <button class="p2-chip ${k === d.action ? 'active' : ''}" onclick="loadDbmsAcid('${k}', '${targetId}')">${lbl}</button>
+          `).join("")}
+          <span class="pill" style="margin-left:auto; background:${isRollback ? '#fee2e2' : '#dcfce7'}; color:${isRollback ? '#b91c1c' : '#15803d'};">${isRollback ? 'ATOMIC ROLLBACK' : 'COMMITTED'}</span>
+        </div>
+        <div class="dbms-3d-arena">
+          <div class="dbms-3d-row">
+            <div class="dbms-cube ${isRollback ? 'danger' : 'amber'}" style="min-width:110px; padding:0.65rem;">
+              <div style="font-size:0.66rem; color:#94a3b8;">TRIGGER ENGINE</div>
+              <div style="font-size:0.88rem; font-weight:900;">${isRollback ? '❌ Constraint Fail' : '⚡ AFTER INSERT'}</div>
+            </div>
+            <div class="dbms-arrow">${isRollback ? '↩' : '➔'}</div>
+            <div class="dbms-cube success" style="min-width:105px; padding:0.65rem;">
+              <div style="font-size:0.66rem; color:#94a3b8;">QUARANTINE</div>
+              <div style="font-size:1rem; font-weight:900;">${d.quarantine_rows} Rows</div>
+            </div>
+            <div class="dbms-cube success" style="min-width:105px; padding:0.65rem;">
+              <div style="font-size:0.66rem; color:#94a3b8;">AUDIT LOG</div>
+              <div style="font-size:1rem; font-weight:900;">${d.audit_rows} Rows</div>
+            </div>
+          </div>
+          <div style="margin-top:0.85rem; text-align:center; font-size:0.8rem; font-weight:800; color:${isRollback ? '#fca5a5' : '#6ee7b7'};">
+            ${d.verdict}
+          </div>
+        </div>
+      `;
+    }
+
+    /* Phase 2 Interactive 3D Stage Loaders */
+    async function loadP2Memory(policy = "FIRST_FIT", targetId = "p2-live-stage") {
+      const box = document.getElementById(targetId);
+      if (!box) return;
+      const res = await fetch(`/api/p2/memory_state?policy=${policy}`);
+      const d = await res.json();
+      const grads = {
+        ALLOCATED: "linear-gradient(180deg, #38bdf8, #0369a1)",
+        FREE: "linear-gradient(180deg, #34d399, #047857)",
+        FRAGMENTED: "linear-gradient(180deg, #f87171, #b91c1c)"
+      };
+      const allocUnits = d.blocks.filter(b => b.status === "ALLOCATED").reduce((a, b) => a + b.span, 0);
+
+      box.innerHTML = `
+        <div class="stage-title">⚙️ OS Kernel: 3D Dynamic Heap Memory Allocator</div>
+        <div class="p2-toolbar">
+          ${["FIRST_FIT", "BEST_FIT", "WORST_FIT"].map(p => `
+            <button class="p2-chip ${p === d.policy ? 'active' : ''}" onclick="loadP2Memory('${p}', '${targetId}')">${p.replace('_', ' ')}</button>
+          `).join("")}
+          <span class="pill" style="margin-left:auto; background:${d.external_frag_pct > 35 ? '#fee2e2' : '#dcfce7'}; color:${d.external_frag_pct > 35 ? '#b91c1c' : '#15803d'};">Ext. Frag: ${d.external_frag_pct}%</span>
+        </div>
+        <div class="dbms-3d-arena">
+          <div style="display:flex; gap:6px; min-height:78px; align-items:stretch; margin-bottom:0.95rem;">
+            ${d.blocks.map(b => `
+              <div class="os-3d-block" style="flex:${b.span} 0 auto; background:${grads[b.status]};" title="${b.status} (${b.span} units)">
+                <span>${b.status === "ALLOCATED" ? "#" + b.tag : (b.status === "FREE" ? "FREE" : "HOLE")}</span>
+                <span style="font-size:0.65rem; opacity:0.85;">${b.span}u</span>
+              </div>
+            `).join("")}
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:0.75rem;">
+            <div class="dbms-cube" style="min-width:0; padding:0.6rem; animation:none;">
+              <div style="font-size:0.66rem; color:#94a3b8;">ALLOCATED</div>
+              <div style="font-size:1.05rem; font-weight:900; color:#38bdf8;">${allocUnits} / 64 Units</div>
+            </div>
+            <div class="dbms-cube ${d.external_frag_pct > 35 ? 'danger' : 'success'}" style="min-width:0; padding:0.6rem; animation:none;">
+              <div style="font-size:0.66rem; color:#94a3b8;">FRAGMENTATION</div>
+              <div style="font-size:1.05rem; font-weight:900;">${d.external_frag_pct}%</div>
+            </div>
+            <div class="dbms-cube success" style="min-width:0; padding:0.6rem; animation:none;">
+              <div style="font-size:0.66rem; color:#94a3b8;">ACTIVE POLICY</div>
+              <div style="font-size:0.95rem; font-weight:900;">${d.policy.replace('_', ' ')}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function loadP2Scheduler(algo = "RR", targetId = "p2-live-stage") {
+      const box = document.getElementById(targetId);
+      if (!box) return;
+      const res = await fetch(`/api/p2/scheduler_metrics?algo=${algo}`);
+      const d = await res.json();
+      const grads = [
+        "linear-gradient(180deg, #38bdf8, #0369a1)",
+        "linear-gradient(180deg, #34d399, #047857)",
+        "linear-gradient(180deg, #a78bfa, #5b21b6)",
+        "linear-gradient(180deg, #fbbf24, #b45309)",
+        "linear-gradient(180deg, #fb7185, #be123c)"
+      ];
+
+      box.innerHTML = `
+        <div class="stage-title">⚙️ OS Kernel: 3D CPU Pipeline &amp; Gantt Execution</div>
+        <div class="p2-toolbar">
+          ${["FCFS", "SJF", "RR"].map(a => `
+            <button class="p2-chip ${a === d.algo ? 'active' : ''}" onclick="loadP2Scheduler('${a}', '${targetId}')">${a === "RR" ? "Round Robin (Q=2)" : a}</button>
+          `).join("")}
+          <span class="pill" style="margin-left:auto; background:#e0f2fe; color:#0369a1;">Quantum: ${d.algo === 'RR' ? '2 ms' : 'Non-Preemptive'}</span>
+        </div>
+        <div class="dbms-3d-arena">
+          <div style="display:flex; gap:6px; min-height:76px; align-items:stretch; overflow-x:auto; margin-bottom:0.95rem;">
+            ${d.gantt.map(s => `
+              <div class="os-3d-block" style="flex:${s.end - s.start} 0 auto; min-width:44px; background:${grads[(s.pid - 1) % grads.length]};">
+                <span>P${s.pid}</span>
+                <span style="font-size:0.64rem; opacity:0.9;">${s.start}→${s.end}</span>
+              </div>
+            `).join("")}
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:0.75rem;">
+            <div class="dbms-cube ${d.awt < 6.5 ? 'success' : 'amber'}" style="min-width:0; padding:0.6rem; animation:none;">
+              <div style="font-size:0.66rem; color:#94a3b8;">AVG WAIT (AWT)</div>
+              <div style="font-size:1.05rem; font-weight:900;">${d.awt} ms</div>
+            </div>
+            <div class="dbms-cube" style="min-width:0; padding:0.6rem; animation:none;">
+              <div style="font-size:0.66rem; color:#94a3b8;">TURNAROUND</div>
+              <div style="font-size:1.05rem; font-weight:900; color:#38bdf8;">${d.atat} ms</div>
+            </div>
+            <div class="dbms-cube amber" style="min-width:0; padding:0.6rem; animation:none;">
+              <div style="font-size:0.66rem; color:#94a3b8;">CTX SWITCHES</div>
+              <div style="font-size:1.05rem; font-weight:900;">${d.csw}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function loadP2Paging(frames = 3, targetId = "p2-live-stage") {
+      const box = document.getElementById(targetId);
+      if (!box) return;
+      const res = await fetch(`/api/p2/paging_stats?frames=${frames}`);
+      const d = await res.json();
+      const algos = [
+        { name: "FIFO", val: d.faults.FIFO, grad: "linear-gradient(180deg, #f87171, #991b1b)" },
+        { name: "LRU", val: d.faults.LRU, grad: "linear-gradient(180deg, #38bdf8, #075985)" },
+        { name: "CLOCK", val: d.faults.CLOCK, grad: "linear-gradient(180deg, #a78bfa, #5b21b6)" },
+        { name: "OPT", val: d.faults.OPT, grad: "linear-gradient(180deg, #34d399, #065f46)" }
+      ];
+
+      box.innerHTML = `
+        <div class="stage-title">⚙️ OS Kernel: 3D Page Replacement &amp; Belady's Anomaly</div>
+        <div class="p2-toolbar">
+          ${[3, 4, 5].map(f => `
+            <button class="p2-chip ${f === d.frames ? 'active' : ''}" onclick="loadP2Paging(${f}, '${targetId}')">${f} Physical Frames</button>
+          `).join("")}
+          <span class="pill" style="margin-left:auto; background:#f3e8ff; color:#6d28d9;">Active RAM Slots: ${d.frames}</span>
+        </div>
+        <div class="dbms-3d-arena">
+          <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:0.85rem; align-items:end; height:145px; padding-top:0.5rem;">
+            ${algos.map(a => `
+              <div style="display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%;">
+                <div style="font-size:0.88rem; font-weight:900; color:#f8fafc; margin-bottom:4px;">${a.val} Faults</div>
+                <div class="os-3d-block" style="width:72%; height:${Math.min(100, a.val * 9)}px; background:${a.grad};"></div>
+                <div style="font-size:0.78rem; font-weight:900; color:#94a3b8; margin-top:6px;">${a.name}</div>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      `;
+    }
+
+    async function loadP2Disk(diskAlgo = "LOOK", targetId = "p2-live-stage") {
+      const box = document.getElementById(targetId);
+      if (!box) return;
+      const res = await fetch(`/api/p2/disk_seek?disk_algo=${diskAlgo}`);
+      const d = await res.json();
+      const headPct = Math.min(92, Math.max(6, (d.total_seek % 180) / 1.8));
+      const targets = [14, 37, 65, 98, 122, 183];
+
+      box.innerHTML = `
+        <div class="stage-title">⚙️ OS Kernel: 3D Disk Platter &amp; Actuator Seek Head</div>
+        <div class="p2-toolbar">
+          ${["FCFS", "SCAN", "LOOK"].map(a => `
+            <button class="p2-chip ${a === d.disk_algo ? 'active' : ''}" onclick="loadP2Disk('${a}', '${targetId}')">${a}</button>
+          `).join("")}
+          <span class="pill" style="margin-left:auto; background:#ffedd5; color:#c2410c;">Total Seek: ${d.total_seek} Cylinders</span>
+        </div>
+        <div class="dbms-3d-arena">
+          <div style="display:flex; justify-content:space-between; font-size:0.72rem; color:#94a3b8; font-weight:800;">
+            <span>CYLINDER 0</span>
+            <span>INITIAL HEAD: ${d.initial_head}</span>
+            <span>CYLINDER 199</span>
+          </div>
+          <div class="os-track-rail">
+            ${targets.map(t => `<div class="os-track-dot" style="left:${(t / 200) * 100}%;" title="Track ${t}"></div>`).join("")}
+            <div class="os-rw-head" style="left:${headPct}%;">R/W</div>
+          </div>
+          <div style="background:rgba(15,23,42,0.75); border:1px solid rgba(56,189,248,0.25); border-radius:10px; padding:0.6rem 0.85rem; font-size:0.8rem; color:#38bdf8; font-weight:800; text-align:center;">
+            Head Path: ${d.order.join(" ➔ ")}
+          </div>
+        </div>
+      `;
+    }
+
+    // Wrap renderMemberOverview cleanly without touching template strings
+    const _origRenderMember = renderMemberOverview;
+    renderMemberOverview = async function(mid) {
+      await _origRenderMember(mid);
+      const view = document.getElementById("app-root");
+      if (!view) return;
+      const p2Map = {
+        1: () => loadP2Memory("FIRST_FIT", "p2-inline-box"),
+        2: () => loadP2Scheduler("RR", "p2-inline-box"),
+        3: () => loadP2Paging(3, "p2-inline-box"),
+        4: () => loadP2Disk("LOOK", "p2-inline-box")
+      };
+      if (p2Map[mid] && !document.getElementById("p2-inline-box")) {
+        const dualWrap = document.createElement("div");
+        dualWrap.style.display = "grid";
+        dualWrap.style.gridTemplateColumns = "1fr";
+        dualWrap.style.gap = "1.4rem";
+        dualWrap.style.marginBottom = "1.5rem";
+
+        const osCard = document.createElement("div");
+        osCard.className = "outer-card";
+        osCard.style.cursor = "default";
+        osCard.innerHTML = `<div class="card-accent" style="background:var(--m${mid}-grad);"></div><div id="p2-inline-box">Loading OS Simulator...</div>`;
+
+        const dbmsCard = document.createElement("div");
+        dbmsCard.className = "outer-card";
+        dbmsCard.style.cursor = "default";
+        dbmsCard.innerHTML = `<div class="card-accent" style="background:linear-gradient(90deg, #7c3aed, #0284c7);"></div><div id="dbms-inline-box">Loading DBMS Simulator...</div>`;
+
+        dualWrap.appendChild(osCard);
+        dualWrap.appendChild(dbmsCard);
+
+        const grid = view.querySelector(".cards-grid") || view.lastElementChild;
+        if (grid && grid.parentNode) {
+          grid.parentNode.insertBefore(dualWrap, grid);
+        } else {
+          view.prepend(dualWrap);
+        }
+        p2Map[mid]();
+        const dbmsMap = {
+          1: () => loadDbmsMvcc("PREPARED", "dbms-inline-box"),
+          2: () => loadDbmsOptimizer("BTREE_INDEX", "dbms-inline-box"),
+          3: () => loadDbmsWal("REDO", "dbms-inline-box"),
+          4: () => loadDbmsAcid("QUARANTINE_TRIGGER", "dbms-inline-box")
+        };
+        if (dbmsMap[mid]) dbmsMap[mid]();
+      }
+    };
+
+    // Also hook inside build3DVisual modal for those 4 modules
+    const _origBuild3D = build3DVisual;
+    build3DVisual = function(modId, liveData, theme, jitter) {
+      if (["paging", "scheduler", "working_set", "block_alloc"].includes(modId)) {
+        setTimeout(() => {
+          if (modId === "paging") loadP2Memory("FIRST_FIT", "p2-live-stage");
+          if (modId === "scheduler") loadP2Scheduler("RR", "p2-live-stage");
+          if (modId === "working_set") loadP2Paging(3, "p2-live-stage");
+          if (modId === "block_alloc") loadP2Disk("LOOK", "p2-live-stage");
+        }, 15);
+        return `<div id="p2-live-stage" class="stage-3d">Initializing interactive simulator...</div>`;
+      }
+      return _origBuild3D(modId, liveData, theme, jitter);
+    };
+
+  </script>
+  <script>
+    (function initSentinel3D() {
+      const canvas = document.getElementById("webgl-3d-bg");
+      if (!canvas || typeof THREE === "undefined") return;
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.z = 34;
+
+      const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+      // Central 3D Isometric Cyber Core (Wireframe Icosahedron + Inner Torus Knot)
+      const coreGroup = new THREE.Group();
+      scene.add(coreGroup);
+
+      const icoGeo = new THREE.IcosahedronGeometry(9.5, 1);
+      const icoMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: true, transparent: true, opacity: 0.22 });
+      const icoMesh = new THREE.Mesh(icoGeo, icoMat);
+      coreGroup.add(icoMesh);
+
+      const knotGeo = new THREE.TorusKnotGeometry(4.6, 1.1, 90, 14);
+      const knotMat = new THREE.MeshBasicMaterial({ color: 0x8b5cf6, wireframe: true, transparent: true, opacity: 0.25 });
+      const knotMesh = new THREE.Mesh(knotGeo, knotMat);
+      coreGroup.add(knotMesh);
+
+      // Orbiting 3D Data Nodes & Neural Synapses
+      const particleCount = 130;
+      const positions = new Float32Array(particleCount * 3);
+      for (let i = 0; i < particleCount * 3; i += 3) {
+        positions[i] = (Math.random() - 0.5) * 75;
+        positions[i + 1] = (Math.random() - 0.5) * 48;
+        positions[i + 2] = (Math.random() - 0.5) * 40;
+      }
+      const pGeo = new THREE.BufferGeometry();
+      pGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+      const pMat = new THREE.PointsMaterial({ color: 0x38bdf8, size: 0.42, transparent: true, opacity: 0.75 });
+      const particles = new THREE.Points(pGeo, pMat);
+      scene.add(particles);
+
+      // 3D Perspective Floor Grid Helper
+      const gridHelper = new THREE.GridHelper(110, 28, 0x38bdf8, 0x6366f1);
+      gridHelper.position.y = -16;
+      gridHelper.material.transparent = true;
+      gridHelper.material.opacity = 0.22;
+      scene.add(gridHelper);
+
+      let targetX = 0, targetY = 0;
+      document.addEventListener("mousemove", (e) => {
+        targetX = (e.clientX / window.innerWidth - 0.5) * 2;
+        targetY = (e.clientY / window.innerHeight - 0.5) * 2;
+
+        // 3D Card Tilt & Specular Glow
+        const card = e.target.closest(".outer-card");
+        if (card) {
+          const rect = card.getBoundingClientRect();
+          const rx = ((e.clientY - rect.top) / rect.height - 0.5) * -5;
+          const ry = ((e.clientX - rect.left) / rect.width - 0.5) * 5;
+          card.style.setProperty("--mx", `${((e.clientX - rect.left) / rect.width) * 100}%`);
+          card.style.setProperty("--my", `${((e.clientY - rect.top) / rect.height) * 100}%`);
+          card.style.transform = `perspective(1100px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg) translateY(-3px)`;
+        }
       });
-    }, 1200);
+
+      document.addEventListener("mouseout", (e) => {
+        const card = e.target.closest(".outer-card");
+        if (card && !card.contains(e.relatedTarget)) {
+          card.style.transform = "";
+        }
+      });
+
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      function animate() {
+        requestAnimationFrame(animate);
+        const isDark = document.body.classList.contains("dark-soc");
+        icoMat.opacity = isDark ? 0.26 : 0.14;
+        knotMat.opacity = isDark ? 0.30 : 0.16;
+        gridHelper.material.opacity = isDark ? 0.26 : 0.14;
+
+        icoMesh.rotation.y += 0.0025;
+        icoMesh.rotation.x += 0.0012;
+        knotMesh.rotation.y -= 0.004;
+        knotMesh.rotation.z += 0.002;
+        particles.rotation.y += 0.0008;
+
+        coreGroup.rotation.y += (targetX * 0.45 - coreGroup.rotation.y) * 0.05;
+        coreGroup.rotation.x += (targetY * 0.3 - coreGroup.rotation.x) * 0.05;
+        camera.position.x += (targetX * 3.5 - camera.position.x) * 0.04;
+        camera.position.y += (-targetY * 2.2 - camera.position.y) * 0.04;
+        camera.lookAt(0, 0, 0);
+
+        renderer.render(scene, camera);
+      }
+      animate();
+    })();
   </script>
 </body>
 </html>
