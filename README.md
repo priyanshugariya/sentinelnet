@@ -21,3 +21,68 @@
   [ Incoming Traffic ] ──► [ Syscall Audit & Ring Buffer ] ──► [ MLFQ Scheduler & Memory ]
                                                                           │
   [ 3D WebGL SOC HUD ] ◄── [ Flask Telemetry REST API ]    ◄── [ 4NF/5NF DB, MVCC & WAL ]
+```
+
+**SentinelNet** simulates an end-to-end threat-quarantine pipeline where kernel-level packet ingestion, custom memory allocation, thread synchronization, and transactional database concurrency work together in real time.
+
+---
+
+## 🔥 Core Capabilities
+
+| Layer | Engineering Focus | Key Implementations |
+| :--- | :--- | :--- |
+| **Kernel & I/O** | Syscall tracing & lock-free ingestion | `strace` profiling, POSIX circular ring buffer, `mutex` vs. `spinlock` latency benchmarks |
+| **Memory & CPU** | Virtual addressing & thread scheduling | Free-list allocator, fragmentation stress tests, paging/segmentation, MLFQ real-time scheduler |
+| **Fault Tolerance** | Deadlocks & storage reliability | Resource Allocation Graph (RAG) cycle recovery, working-set thrash guard, RAID parity blocks |
+| **DBMS Engine** | Normalization & ACID concurrency | 4NF/5NF temporal warehouse, embedded dynamic SQL, Timestamp MVCC, 2PL locking & WAL recovery |
+| **Visualization** | Real-time SOC telemetry | Flask REST API paired with an interactive **Three.js WebGL** 3D simulation interface |
+
+---
+
+## 👥 Team Modules (`src/`)
+
+<details open>
+<summary><b>Click to expand/collapse contributor breakdown</b></summary>
+<br>
+
+| Module | Contributor | Focus Areas |
+| :--- | :--- | :--- |
+| **`member1`** | **Priyanshu** | Syscall profiler, POSIX ring buffer, sync benchmarks, memory allocator, paging, embedded SQL & MVCC |
+| **`member2`** | **Anjali** | Process supervisor, thread models, MLFQ scheduler, relational algebra & query cost optimizer |
+| **`member3`** | **Aanya** | Working-set thrashing guard, log-structured FS, media recovery, B-Tree/NoSQL & 4NF/5NF warehouse |
+| **`member4`** | **Drishti** | Deadlock recovery engine, FS block allocator, RAID parity, DB triggers, 2PL locking & WAL recovery |
+
+</details>
+
+---
+
+## 📁 Repository Layout
+
+```text
+sentinelnet/
+├── dashboard/                  # Flask server (app.py) & 3D WebGL UI (index.html)
+├── config/                     # System & telemetry configuration files
+├── data/                       # SQLite databases, audit logs & benchmark datasets
+└── src/
+    ├── member1/                # Kernel syscalls, ring buffer, memory & MVCC
+    ├── member2/                # Process/thread models, MLFQ & query optimizer
+    ├── member3/                # Thrashing guard, B-Tree/NoSQL & 4NF/5NF warehouse
+    └── member4/                # Deadlock recovery, RAID parity, 2PL & WAL recovery
+```
+
+---
+
+## 🚀 Quick Start
+
+```bash
+# 1. Clone the repository
+git clone [https://github.com/priyanshugariya/sentinelnet.git](https://github.com/priyanshugariya/sentinelnet.git) && cd sentinelnet
+
+# 2. Install Flask
+pip install flask
+
+# 3. Launch the 3D SOC Dashboard
+python3 dashboard/app.py
+```
+
+> Open **`http://127.0.0.1:5000`** in your browser to interact with the live packet quarantine pipeline and all four OS/DBMS simulator suites.
